@@ -1,0 +1,196 @@
+name: Build and Deploy Admin Dashboard
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  JUMPHOST_IP: "197.156.110.145"
+  JUMPHOST_PORT: "250"
+  JUMPHOST_USER: "startupadmin"
+  JUMPHOST_PASSWORD: "Admin@2025"
+  DEPLOYMENT_PATH: "/srv/besew/frontend/admin"
+  SERVICE_NAME: "besew-admin-dashboard"
+  CONTAINER_PORT: "3000"
+  DOMAIN: "admin.besewonline.com"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create archive
+      run: |
+        echo "Creating archive of admin dashboard source code..."
+        tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='*.tar.gz' -czf ../admin-dashboard.tar.gz .
+        mv ../admin-dashboard.tar.gz .
+        ls -lh admin-dashboard.tar.gz
+
+    - name: Install SSH tools
+      run: sudo apt-get update && sudo apt-get install -y sshpass
+
+    - name: Transfer to jumphost
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" scp -P ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no admin-dashboard.tar.gz ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }}:~/
+
+    - name: Extract and setup on jumphost
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Setting up admin dashboard on jumphost...'
+          
+          # Create deployment directory
+          echo 'Admin@2025' | sudo -S mkdir -p ${{ env.DEPLOYMENT_PATH }}
+          echo 'Admin@2025' | sudo -S chown startupadmin:startupadmin ${{ env.DEPLOYMENT_PATH }}
+          
+          # Backup existing deployment
+          if [ -d '${{ env.DEPLOYMENT_PATH }}' ] && [ -n \"\$(ls -A ${{ env.DEPLOYMENT_PATH }})\" ]; then
+            echo 'Creating backup of current deployment...'
+            tar -czf ~/admin-dashboard.backup.\$(date +%Y%m%d_%H%M%S).tar.gz -C ${{ env.DEPLOYMENT_PATH }} .
+          fi
+          
+          # Extract new code
+          cd ${{ env.DEPLOYMENT_PATH }}
+          tar -xzf ~/admin-dashboard.tar.gz
+          rm ~/admin-dashboard.tar.gz
+          
+          echo 'Admin dashboard source code synced to ${{ env.DEPLOYMENT_PATH }}'
+        "
+
+    - name: Build Docker image on jumphost
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Building Docker image on jumphost (includes npm install and build)...'
+          cd ${{ env.DEPLOYMENT_PATH }}
+          
+          # Docker multi-stage build handles npm install and build internally
+          docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
+          docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
+          
+          echo 'Docker image built successfully'
+        "
+
+    - name: Deploy container
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Deploying admin dashboard container...'
+          
+          # Stop and remove old container
+          docker stop ${{ env.SERVICE_NAME }} 2>/dev/null || true
+          docker rm ${{ env.SERVICE_NAME }} 2>/dev/null || true
+          
+          # Start new container
+          docker run -d \
+            --name ${{ env.SERVICE_NAME }} \
+            --network backend_besew-network \
+            -p ${{ env.CONTAINER_PORT }}:80 \
+            --restart unless-stopped \
+            ${{ env.SERVICE_NAME }}:latest
+          
+          echo 'Container started successfully'
+        "
+
+    - name: Wait for container to be ready
+      run: sleep 10
+
+    - name: Verify deployment
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Verifying deployment...'
+          
+          # Check container status
+          docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          
+          # Check container logs
+          echo 'Container logs:'
+          docker logs ${{ env.SERVICE_NAME }} --tail 20
+          
+          # Test local access
+          echo 'Testing local access...'
+          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }})
+          echo \"HTTP Status: \$HTTP_STATUS\"
+          
+          if [ \"\$HTTP_STATUS\" != \"200\" ]; then
+            echo '[ERROR] Service not responding correctly'
+            exit 1
+          fi
+          
+          echo '[SUCCESS] Service is responding'
+        "
+
+    - name: Verify NGINX configuration
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Verifying NGINX configuration for admin dashboard...'
+          
+          # Check if NGINX config exists
+          if echo 'Admin@2025' | sudo -S test -f /etc/nginx/sites-available/admin-besewonline.conf; then
+            echo '[SUCCESS] NGINX configuration found at /etc/nginx/sites-available/admin-besewonline.conf'
+            
+            # Verify symlink exists
+            if echo 'Admin@2025' | sudo -S test -L /etc/nginx/sites-enabled/admin-besewonline.conf; then
+              echo '[SUCCESS] NGINX configuration is enabled'
+            else
+              echo '[WARNING] Creating symlink to enable configuration'
+              echo 'Admin@2025' | sudo -S ln -sf /etc/nginx/sites-available/admin-besewonline.conf /etc/nginx/sites-enabled/admin-besewonline.conf
+            fi
+            
+            # Test NGINX configuration
+            echo 'Testing NGINX configuration...'
+            echo 'Admin@2025' | sudo -S nginx -t
+            
+            # Reload NGINX
+            echo 'Reloading NGINX...'
+            echo 'Admin@2025' | sudo -S systemctl reload nginx
+            echo '[SUCCESS] NGINX reloaded successfully'
+          else
+            echo '[ERROR] NGINX configuration not found at /etc/nginx/sites-available/admin-besewonline.conf'
+            echo 'Please create NGINX configuration manually'
+            exit 1
+          fi
+        "
+
+    - name: Test production deployment
+      run: |
+        echo "Testing HTTP redirect..."
+        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.DOMAIN }})
+        echo "HTTP Status: $HTTP_STATUS"
+        
+        echo "Testing HTTPS..."
+        HTTPS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.DOMAIN }})
+        echo "HTTPS Status: $HTTPS_STATUS"
+
+    - name: Cleanup old Docker images
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Cleaning up old Docker images...'
+          docker images ${{ env.SERVICE_NAME }} --format '{{.ID}} {{.CreatedAt}}' | sort -rk 2 | tail -n +4 | awk '{print \$1}' | xargs -r docker rmi || true
+          docker image prune -f
+          echo 'Cleanup completed'
+        "
+
+    - name: Cleanup old backups
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Cleaning up old backups (keeping last 3)...'
+          cd ~
+          ls -t admin-dashboard.backup.*.tar.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
+          echo 'Backup cleanup completed'
+        "
+
+    - name: Deployment summary
+      if: always()
+      run: |
+        echo "========================================="
+        echo "ADMIN DASHBOARD DEPLOYMENT SUMMARY"
+        echo "========================================="
+        echo "Service: Admin Dashboard (React + Vite)"
+        echo "Domain: https://${{ env.DOMAIN }}"
+        echo "Container: ${{ env.SERVICE_NAME }}"
+        echo "Port: ${{ env.CONTAINER_PORT }}"
+        echo "Build Location: Jumphost (${{ env.DEPLOYMENT_PATH }})"
+        echo "Status: ${{ job.status }}"
+        echo "========================================="
