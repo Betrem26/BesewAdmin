@@ -217,6 +217,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     section: 'Management',
     items: [
       { path: '/dashboard/users', label: 'User Management', icon: <FiUsers /> },
+      { path: '/dashboard/roles', label: 'Role Management', icon: <FiShield /> },
       { path: '/dashboard/jobs', label: 'Job Monitoring', icon: <FiBriefcase /> },
       { path: '/dashboard/startups', label: 'Company Management', icon: <FiActivity /> },
       { path: '/dashboard/candidates', label: 'Candidate Management', icon: <FiTarget /> },
@@ -279,7 +280,7 @@ const DashboardLayout: React.FC = () => {
             <FiX />
           </CloseButton>
         </SidebarHeader>
-        
+
         <Nav>
           {menuItems.map((section, idx) => (
             <NavSection key={idx}>
@@ -304,7 +305,7 @@ const DashboardLayout: React.FC = () => {
           <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
             <FiMenu />
           </MenuButton>
-          
+
           <UserInfo>
             <UserName>{user?.phonenumber || 'Admin'}</UserName>
             <LogoutButton onClick={handleLogout}>

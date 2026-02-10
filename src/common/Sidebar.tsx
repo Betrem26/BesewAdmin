@@ -3,7 +3,7 @@ import { useLocation, NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { LiaSuitcaseSolid } from "react-icons/lia";
 import { HiOutlineDocumentDuplicate } from "react-icons/hi2";
-import { TbUsers } from "react-icons/tb";
+import { TbUsers, TbShield } from "react-icons/tb";
 import { LuBuilding2 } from "react-icons/lu";
 import { HiOutlineUsers } from "react-icons/hi";
 import { IoWalletOutline, IoSettingsOutline } from "react-icons/io5";
@@ -99,8 +99,13 @@ const Sidebar: React.FC<{ closeSidebar?: any }> = ({ }) => {
               label="Users"
               currentPath={pathname}
               handelclick={() => setIsSidebarOpen(true)}
-
-
+            />
+            <NavItem
+              to="/roles"
+              icon={<TbShield />}
+              label="Roles"
+              currentPath={pathname}
+              handelclick={() => setIsSidebarOpen(true)}
             />
             <NavItem
               to="/payments"
@@ -209,7 +214,14 @@ const Sidebar: React.FC<{ closeSidebar?: any }> = ({ }) => {
               currentPath={pathname}
               handelclick={() => setIsSidebarOpen(false)}
               label=""
-
+            />
+            <NavItem
+              to="/roles"
+              icon={<TbShield />}
+              // label="Roles"
+              currentPath={pathname}
+              handelclick={() => setIsSidebarOpen(false)}
+              label=""
             />
             <NavItem
               to="/payments"

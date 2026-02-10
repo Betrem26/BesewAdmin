@@ -21,17 +21,18 @@ import CandidateManagement from './pages/dashboard/CandidateManagement';
 import CommissionTracking from './pages/dashboard/CommissionTracking';
 import NotificationCenter from './pages/dashboard/NotificationCenter';
 import AuditLogs from './pages/dashboard/AuditLogs';
+import RoleManagement from './pages/RoleManagement';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = useSelector((state: RootState) => state.user.accessToken);
-  
+
   if (!token) {
     return <Navigate to="/" replace />;
   }
-  
+
   return children;
 };
 
@@ -42,7 +43,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<SignIn />} />
-          
+
           {/* Protected Dashboard Routes */}
           <Route
             path="/dashboard"
@@ -70,14 +71,15 @@ function App() {
             <Route path="commissions" element={<CommissionTracking />} />
             <Route path="notifications" element={<NotificationCenter />} />
             <Route path="audit-logs" element={<AuditLogs />} />
+            <Route path="roles" element={<RoleManagement />} />
             <Route path="settings" element={<div>Settings (Coming Soon)</div>} />
           </Route>
-          
+
           {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
-      
+
       <ToastContainer
         position="top-right"
         autoClose={3000}

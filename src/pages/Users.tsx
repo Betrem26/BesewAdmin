@@ -55,6 +55,8 @@ import {
 } from "@mui/icons-material";
 import Sidebar from "../common/Sidebar";
 import Header from "../common/Header";
+import { rolesApi, Role as RBACRole } from "../services/rolesApi";
+import { accountApi, partyApi } from "../services/api";
 
 interface User {
   _id: string;
@@ -131,6 +133,7 @@ function Users() {
     verified: 0,
     companies: 0,
   });
+  const [availableRoles, setAvailableRoles] = useState<RBACRole[]>([]);
 
   // Add User Dialog States
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
@@ -159,33 +162,26 @@ function Users() {
 
   // Fetch users data
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         console.log("🔄 Fetching users data...");
 
-        // Fetch both accounts and party profiles
-        const [accountsResponse, partyResponse] = await Promise.all([
-          fetch("https://account.besewonline.com/accounts"),
-          fetch("https://party.besewonline.com/party-profiles"),
+        // Fetch accounts, party profiles and roles
+        const [accountsResponse, partyResponse, rolesData] = await Promise.all([
+          accountApi.get("/accounts"),
+          partyApi.get("/party-profiles"),
+          rolesApi.getAllRoles(false)
         ]);
 
-        console.log(
-          "📊 Accounts API Response Status:",
-          accountsResponse.status
-        );
-        console.log("📊 Party API Response Status:", partyResponse.status);
-
-        const accountsData = await accountsResponse.json();
-        const partyData = await partyResponse.json();
-
-        console.log("📊 Accounts Data:", accountsData);
-        console.log("📊 Party Data:", partyData);
+        const accountsData = accountsResponse.data;
+        const partyData = partyResponse.data;
+        setAvailableRoles(rolesData);
 
         // Combine and normalize data
         const combinedUsers: User[] = [];
 
-        // Add accounts data
+        // ... normalization logic remains similar ...
         if (Array.isArray(accountsData)) {
           accountsData.forEach((account: any) => {
             combinedUsers.push({
@@ -217,7 +213,6 @@ function Users() {
           });
         }
 
-        // Add party profiles data (avoiding duplicates)
         if (Array.isArray(partyData)) {
           partyData.forEach((party: any) => {
             const existingUser = combinedUsers.find(
@@ -243,13 +238,10 @@ function Users() {
                 created_at: party.created_at,
               });
             } else {
-              // Update existing user with party data
               existingUser.name = party.name || existingUser.name;
-              existingUser.last_name =
-                party.last_name || existingUser.last_name;
+              existingUser.last_name = party.last_name || existingUser.last_name;
               existingUser.email = party.email || existingUser.email;
-              existingUser.auth_verified =
-                party.auth_verfied || existingUser.auth_verified;
+              existingUser.auth_verified = party.auth_verfied || existingUser.auth_verified;
             }
           });
         }
@@ -263,19 +255,13 @@ function Users() {
         );
         setStats({
           total: combinedUsers.length,
-          active: combinedUsers.filter((user) => user.status === "Active")
-            .length,
+          active: combinedUsers.filter((user) => user.status === "Active").length,
           verified: combinedUsers.filter((user) => user.auth_verified).length,
           companies: uniqueCompanies.size,
         });
 
-        console.log(
-          "✅ Users data loaded successfully:",
-          combinedUsers.length,
-          "users"
-        );
       } catch (error) {
-        console.error("❌ Error fetching users:", error);
+        console.error("❌ Error fetching data:", error);
         setSnackbarMessage("Failed to load users data");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
@@ -284,7 +270,7 @@ function Users() {
       }
     };
 
-    fetchUsers();
+    fetchData();
   }, []);
 
   // Filter users based on search and filters
@@ -758,12 +744,6 @@ function Users() {
     setSelectedUser(null);
   };
 
-  const getUniqueRoles = () => {
-    const roles = new Set(
-      users.map((user) => user.role).filter((role) => role !== "N/A")
-    );
-    return Array.from(roles);
-  };
 
   const getInitials = (name: string, lastName?: string) => {
     return `${name.charAt(0)}${lastName?.charAt(0) || ""}`.toUpperCase();
@@ -962,9 +942,9 @@ function Users() {
                     label="Role"
                   >
                     <MenuItem value="all">All Roles</MenuItem>
-                    {getUniqueRoles().map((role) => (
-                      <MenuItem key={role} value={role.toLowerCase()}>
-                        {role}
+                    {availableRoles.map((role) => (
+                      <MenuItem key={role._id} value={role.name}>
+                        {role.displayName}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1360,12 +1340,11 @@ function Users() {
                     onChange={(e) => handleInputChange("role", e.target.value)}
                     label="Role"
                   >
-                    <MenuItem value="user">User</MenuItem>
-                    <MenuItem value="admin">Admin</MenuItem>
-                    <MenuItem value="manager">Manager</MenuItem>
-                    <MenuItem value="employee">Employee</MenuItem>
-                    <MenuItem value="hr">HR</MenuItem>
-                    <MenuItem value="recruiter">Recruiter</MenuItem>
+                    {availableRoles.map((role) => (
+                      <MenuItem key={role._id} value={role.name}>
+                        {role.displayName}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
