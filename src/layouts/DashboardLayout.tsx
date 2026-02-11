@@ -4,6 +4,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { clearToken, clearUser } from '../store/features/userSlice';
+import { checkPermission } from '../utils/rbac';
 import {
   FiHome,
   FiUsers,
@@ -194,6 +195,7 @@ interface MenuItem {
   path: string;
   label: string;
   icon: React.ReactNode;
+  permission?: string;
 }
 
 const menuItems: { section: string; items: MenuItem[] }[] = [
@@ -210,20 +212,19 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
       { path: '/dashboard/system-health', label: 'System Health', icon: <FiActivity /> },
       { path: '/dashboard/analytics', label: 'Analytics Dashboard', icon: <FiBarChart2 /> },
       { path: '/dashboard/notifications', label: 'Notification Center', icon: <FiBell /> },
-      { path: '/dashboard/audit-logs', label: 'Audit Logs', icon: <FiShield /> },
+      { path: '/dashboard/audit-logs', label: 'Audit Logs', icon: <FiShield />, permission: 'VIEW_ACTIVITY_LOGS' },
     ],
   },
   {
     section: 'Management',
     items: [
-      { path: '/dashboard/users', label: 'User Management', icon: <FiUsers /> },
-      { path: '/dashboard/roles', label: 'Role Management', icon: <FiShield /> },
-      { path: '/dashboard/jobs', label: 'Job Monitoring', icon: <FiBriefcase /> },
+      { path: '/dashboard/users', label: 'User Management', icon: <FiUsers />, permission: 'MANAGE_USERS' },
+      { path: '/dashboard/jobs', label: 'Job Monitoring', icon: <FiBriefcase />, permission: 'VIEW_JOB_STATISTICS' },
       { path: '/dashboard/startups', label: 'Company Management', icon: <FiActivity /> },
-      { path: '/dashboard/candidates', label: 'Candidate Management', icon: <FiTarget /> },
-      { path: '/dashboard/commissions', label: 'Commission Tracking', icon: <FiTrendingUp /> },
+      { path: '/dashboard/candidates', label: 'Candidate Management', icon: <FiTarget />, permission: 'VIEW_CANDIDATE_STATISTICS' },
+      { path: '/dashboard/commissions', label: 'Commission Tracking', icon: <FiTrendingUp />, permission: 'VIEW_FINANCIAL_STATISTICS' },
       { path: '/dashboard/support', label: 'Customer Support', icon: <FiHeadphones /> },
-      { path: '/dashboard/reports', label: 'Account Reports', icon: <FiAlertCircle /> },
+      { path: '/dashboard/reports', label: 'Account Reports', icon: <FiAlertCircle />, permission: 'VIEW_ACCOUNT_STATISTICS' },
     ],
   },
   {
@@ -233,11 +234,16 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     ],
   },
   {
+    section: 'Psychometric & Assessment',
+    items: [
+      { path: '/dashboard/psychometric', label: 'Psychometric Questions', icon: <FiTarget />, permission: 'MANAGE_PSYCHOMETRIC' },
+      { path: '/dashboard/psychometric-analytics', label: 'Psychometric Analytics', icon: <FiBarChart2 />, permission: 'VIEW_PSYCHOMETRIC_ANALYTICS' },
+    ],
+  },
+  {
     section: 'Content',
     items: [
       { path: '/dashboard/job-categories', label: 'Job Categories', icon: <FiBriefcase /> },
-      { path: '/dashboard/psychometric', label: 'Psychometric Questions', icon: <FiTarget /> },
-      { path: '/dashboard/psychometric-analytics', label: 'Psychometric Analytics', icon: <FiBarChart2 /> },
     ],
   },
   {
@@ -282,21 +288,32 @@ const DashboardLayout: React.FC = () => {
         </SidebarHeader>
 
         <Nav>
-          {menuItems.map((section, idx) => (
-            <NavSection key={idx}>
-              <NavSectionTitle>{section.section}</NavSectionTitle>
-              {section.items.map((item) => (
-                <NavItem
-                  key={item.path}
-                  active={location.pathname === item.path}
-                  onClick={() => handleNavigation(item.path)}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </NavItem>
-              ))}
-            </NavSection>
-          ))}
+          {menuItems.map((section, idx) => {
+            // Filter items based on permissions
+            const visibleItems = section.items.filter(item => {
+              if (!item.permission) return true;
+              return checkPermission(item.permission as any);
+            });
+
+            // Don't render section if no visible items
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <NavSection key={idx}>
+                <NavSectionTitle>{section.section}</NavSectionTitle>
+                {visibleItems.map((item) => (
+                  <NavItem
+                    key={item.path}
+                    active={location.pathname === item.path}
+                    onClick={() => handleNavigation(item.path)}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </NavItem>
+                ))}
+              </NavSection>
+            );
+          })}
         </Nav>
       </Sidebar>
 

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from './store/store';
+import { checkPermission, Permission } from './utils/rbac';
 import SignIn from './pages/auth/SignIn';
 import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
@@ -36,6 +37,27 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   return children;
 };
 
+// Role-based Protected Route Component
+const RoleProtectedRoute = ({ 
+  children, 
+  permission 
+}: { 
+  children: JSX.Element; 
+  permission?: Permission;
+}) => {
+  const token = useSelector((state: RootState) => state.user.accessToken);
+
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (permission && !checkPermission(permission)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <>
@@ -61,8 +83,22 @@ function App() {
             <Route path="reports" element={<AccountReports />} />
             <Route path="otp" element={<OTPManagement />} />
             <Route path="job-categories" element={<JobCategories />} />
-            <Route path="psychometric" element={<Psychometric />} />
-            <Route path="psychometric-analytics" element={<PsychometricAnalytics />} />
+            <Route 
+              path="psychometric" 
+              element={
+                <RoleProtectedRoute permission="MANAGE_PSYCHOMETRIC">
+                  <Psychometric />
+                </RoleProtectedRoute>
+              } 
+            />
+            <Route 
+              path="psychometric-analytics" 
+              element={
+                <RoleProtectedRoute permission="VIEW_PSYCHOMETRIC_ANALYTICS">
+                  <PsychometricAnalytics />
+                </RoleProtectedRoute>
+              } 
+            />
             <Route path="users" element={<UserManagementEnhanced />} />
             <Route path="users/basic" element={<UserManagement />} />
             <Route path="jobs" element={<JobMonitoring />} />

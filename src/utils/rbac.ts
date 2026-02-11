@@ -9,9 +9,12 @@ export type Permission =
   | 'VIEW_ACTIVITY_LOGS'
   | 'EXPORT_STATISTICS'
   | 'MANAGE_USERS'
-  | 'MANAGE_ROLES';
+  | 'MANAGE_ROLES'
+  | 'MANAGE_PSYCHOMETRIC'
+  | 'VIEW_PSYCHOMETRIC_ANALYTICS'
+  | 'MANAGE_ASSESSMENTS';
 
-export type Role = 'admin' | 'super_admin' | 'manager' | 'analyst' | 'viewer';
+export type Role = 'admin' | 'super_admin' | 'manager' | 'analyst' | 'viewer' | 'psychometrician' | 'hr_manager';
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   super_admin: [
@@ -23,7 +26,10 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'VIEW_ACTIVITY_LOGS',
     'EXPORT_STATISTICS',
     'MANAGE_USERS',
-    'MANAGE_ROLES'
+    'MANAGE_ROLES',
+    'MANAGE_PSYCHOMETRIC',
+    'VIEW_PSYCHOMETRIC_ANALYTICS',
+    'MANAGE_ASSESSMENTS'
   ],
   admin: [
     'VIEW_ACCOUNT_STATISTICS',
@@ -32,7 +38,24 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'VIEW_JOB_STATISTICS',
     'VIEW_FINANCIAL_STATISTICS',
     'VIEW_ACTIVITY_LOGS',
-    'EXPORT_STATISTICS'
+    'EXPORT_STATISTICS',
+    'MANAGE_PSYCHOMETRIC',
+    'VIEW_PSYCHOMETRIC_ANALYTICS',
+    'MANAGE_ASSESSMENTS'
+  ],
+  psychometrician: [
+    'MANAGE_PSYCHOMETRIC',
+    'VIEW_PSYCHOMETRIC_ANALYTICS',
+    'MANAGE_ASSESSMENTS',
+    'VIEW_CANDIDATE_STATISTICS'
+  ],
+  hr_manager: [
+    'VIEW_ACCOUNT_STATISTICS',
+    'VIEW_CANDIDATE_STATISTICS',
+    'VIEW_JOB_STATISTICS',
+    'VIEW_PSYCHOMETRIC_ANALYTICS',
+    'MANAGE_ASSESSMENTS',
+    'VIEW_ACTIVITY_LOGS'
   ],
   manager: [
     'VIEW_ACCOUNT_STATISTICS',
