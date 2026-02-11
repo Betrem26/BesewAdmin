@@ -219,6 +219,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     section: 'Management',
     items: [
       { path: '/dashboard/users', label: 'User Management', icon: <FiUsers />, permission: 'MANAGE_USERS' },
+      { path: '/dashboard/roles', label: 'Role Management', icon: <FiShield />, permission: 'MANAGE_ROLES' },
       { path: '/dashboard/jobs', label: 'Job Monitoring', icon: <FiBriefcase />, permission: 'VIEW_JOB_STATISTICS' },
       { path: '/dashboard/startups', label: 'Company Management', icon: <FiActivity /> },
       { path: '/dashboard/candidates', label: 'Candidate Management', icon: <FiTarget />, permission: 'VIEW_CANDIDATE_STATISTICS' },
