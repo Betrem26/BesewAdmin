@@ -41,8 +41,6 @@ import {
     Refresh,
     Info,
 } from "@mui/icons-material";
-import Sidebar from "../common/Sidebar";
-import Header from "../common/Header";
 import { rolesApi, Role } from "../services/rolesApi";
 
 function RoleManagement() {
@@ -52,7 +50,6 @@ function RoleManagement() {
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [openSidebar, setOpenSidebar] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -170,15 +167,11 @@ function RoleManagement() {
     }, {} as Record<string, string[]>);
 
     return (
-        <Box sx={{ display: "flex", width: "100%", minHeight: "100vh" }}>
-            {openSidebar && <Sidebar closeSidebar={setOpenSidebar} />}
-            <Box sx={{ flexGrow: 1, p: 3, bgcolor: "#f5f5f5" }}>
-                <Header />
-
-                <Box sx={{ mb: 4, mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="h4" fontWeight="bold" color="primary">
-                        Role Management
-                    </Typography>
+        <Box sx={{ width: "100%", minHeight: "100vh", p: 3, bgcolor: "#f5f5f5" }}>
+            <Box sx={{ mb: 4, mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Typography variant="h4" fontWeight="bold" color="primary">
+                    Role Management
+                </Typography>
                     <Box>
                         <Button
                             variant="outlined"
