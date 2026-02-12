@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useAppDispatch, useAppSelector } from '../../store/store';
 import {
   fetchAllConfigurations,
-  fetchActiveConfiguration,
+  // fetchActiveConfiguration,
   setSelectedConfiguration,
   createConfiguration,
   updateConfiguration,
@@ -22,7 +22,7 @@ const Psychometric: React.FC = () => {
   const dispatch = useAppDispatch();
   const {
     configurations,
-    activeConfiguration,
+    // activeConfiguration,
     selectedConfiguration,
     configurationsLoading,
     savingConfiguration,

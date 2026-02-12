@@ -172,26 +172,26 @@ function RoleManagement() {
                 <Typography variant="h4" fontWeight="bold" color="primary">
                     Role Management
                 </Typography>
-                    <Box>
-                        <Button
-                            variant="outlined"
-                            startIcon={<Refresh />}
-                            onClick={fetchData}
-                            sx={{ mr: 2 }}
-                        >
-                            Refresh
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<Add />}
-                            onClick={() => handleOpenDialog()}
-                        >
-                            Add Role
-                        </Button>
-                    </Box>
+                <Box>
+                    <Button
+                        variant="outlined"
+                        startIcon={<Refresh />}
+                        onClick={fetchData}
+                        sx={{ mr: 2 }}
+                    >
+                        Refresh
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<Add />}
+                        onClick={() => handleOpenDialog()}
+                    >
+                        Add Role
+                    </Button>
                 </Box>
+            </Box>
 
-                <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid container spacing={3} sx={{ mb: 4 }}>
                     <Grid item xs={12} md={3}>
                         <Card sx={{ bgcolor: "#e3f2fd" }}>
                             <CardContent>
@@ -309,7 +309,6 @@ function RoleManagement() {
                         }}
                     />
                 </Paper>
-            </Box>
 
             {/* Add/Edit Role Dialog */}
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
