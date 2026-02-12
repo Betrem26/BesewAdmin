@@ -7,3 +7,5 @@ This admin dashboard includes:
 - Psychometric Analytics page with assessment insights
 - All chart components (LineChart, BarChart, PieChart, AreaChart, Heatmap)
 - Comprehensive monitoring and management features
+
+<!-- Deployment trigger: 2026-02-12 18:15:56 -->
