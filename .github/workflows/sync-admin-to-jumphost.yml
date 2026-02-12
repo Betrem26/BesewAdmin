@@ -117,7 +117,7 @@ jobs:
           
           # Docker multi-stage build handles npm install and build internally
           echo 'Starting Docker build (this may take several minutes)...'
-          if docker build --no-cache --progress=plain -t ${{ env.SERVICE_NAME }}:latest . 2>&1 | tee /tmp/docker-build.log; then
+          if docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest . 2>&1 | tee /tmp/docker-build.log; then
             BUILD_EXIT_CODE=\${PIPESTATUS[0]}
             if [ \$BUILD_EXIT_CODE -eq 0 ]; then
               docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
