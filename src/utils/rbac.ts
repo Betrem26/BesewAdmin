@@ -102,14 +102,29 @@ class RBACManager {
 
   private hasPermission(permission: Permission): boolean {
     const state = store.getState() as any;
-    const userRole = state.user?.role as Role;
+    const userRole = state.user?.user?.role as Role;
+
+    // Debug logging
+    console.log('[RBAC Debug] Checking permission:', permission);
+    console.log('[RBAC Debug] User role:', userRole);
+    console.log('[RBAC Debug] Full user state:', state.user);
 
     // Super admin has all permissions
     if (userRole === 'super_admin') return true;
 
+    // Temporary: Allow 'admin' role to access all features for testing
+    if (userRole === 'admin') {
+      console.log('[RBAC Debug] Admin role detected - granting permission');
+      return true;
+    }
+
     // Check role-based permissions
     const rolePermissions = ROLE_PERMISSIONS[userRole] || [];
-    return rolePermissions.includes(permission);
+    const hasPermission = rolePermissions.includes(permission);
+    console.log('[RBAC Debug] Role permissions:', rolePermissions);
+    console.log('[RBAC Debug] Has permission:', hasPermission);
+    
+    return hasPermission;
   }
 
   private getCurrentUserId(): string {

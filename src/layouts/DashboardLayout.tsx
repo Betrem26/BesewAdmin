@@ -293,11 +293,18 @@ const DashboardLayout: React.FC = () => {
             // Filter items based on permissions
             const visibleItems = section.items.filter(item => {
               if (!item.permission) return true;
-              return checkPermission(item.permission as any);
+              const hasPermission = checkPermission(item.permission as any);
+              console.log(`[Menu Debug] Section: ${section.section}, Item: ${item.label}, Permission: ${item.permission}, Has Permission: ${hasPermission}`);
+              return hasPermission;
             });
 
             // Don't render section if no visible items
-            if (visibleItems.length === 0) return null;
+            if (visibleItems.length === 0) {
+              console.log(`[Menu Debug] Section "${section.section}" hidden - no visible items`);
+              return null;
+            }
+
+            console.log(`[Menu Debug] Section "${section.section}" visible with ${visibleItems.length} items`);
 
             return (
               <NavSection key={idx}>
