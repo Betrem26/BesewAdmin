@@ -1,4 +1,4 @@
-import { api } from './api';
+import { psychometricApi } from './api';
 
 export interface PsychometricConfiguration {
   _id?: string;
@@ -158,25 +158,38 @@ export interface ScoringConfiguration {
   method: 'ipip' | 'irt' | 'classical' | 'hybrid';
   rawScores: {
     method: 'sum' | 'average' | 'weighted';
+    calculationMethod?: 'sum' | 'average' | 'weighted';
     reverseScoring: boolean;
   };
   normalization: {
-    method: 'z-score' | 'percentile' | 't-score' | 'sten';
+    method: 'z-score' | 'percentile' | 't-score' | 'sten' | 'zScore' | 'stanine';
     scale: { min: number; max: number };
+    targetScale?: { min: number; max: number };
   };
   weighted: {
     enabled: boolean;
     weights: Record<string, number>;
   };
+  weightedScoring?: {
+    enabled: boolean;
+    method?: 'itemDiscrimination' | 'itemDifficulty' | 'factorLoading' | 'custom';
+  };
   outliers: {
     enabled: boolean;
-    method: 'iqr' | 'z-score' | 'mad';
+    method: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
     threshold: number;
-    action: 'flag' | 'remove' | 'winsorize';
+    action: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
+  };
+  outlierDetection?: {
+    enabled: boolean;
+    method: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
+    threshold: number;
+    action: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
   };
   missingData: {
-    method: 'mean-imputation' | 'median-imputation' | 'exclude' | 'pro-rate';
+    method: 'mean-imputation' | 'median-imputation' | 'exclude' | 'pro-rate' | 'proRate' | 'meanImputation' | 'multipleImputation';
     maxMissingPerTrait: number;
+    maxMissingOverall?: number;
   };
 }
 
@@ -220,48 +233,48 @@ export interface ReportingConfiguration {
 const psychometricConfigApi = {
   // Get active configuration
   getActiveConfiguration: async (): Promise<PsychometricConfiguration> => {
-    const response = await api.get('/admin/psychometric/config');
+    const response = await psychometricApi.get('/admin/psychometric/config');
     return response.data;
   },
 
   // Get all configurations
   getAllConfigurations: async (): Promise<PsychometricConfiguration[]> => {
-    const response = await api.get('/admin/psychometric/config/all');
+    const response = await psychometricApi.get('/admin/psychometric/config/all');
     return response.data;
   },
 
   // Get configuration by ID
   getConfigurationById: async (id: string): Promise<PsychometricConfiguration> => {
-    const response = await api.get(`/admin/psychometric/config/${id}`);
+    const response = await psychometricApi.get(`/admin/psychometric/config/${id}`);
     return response.data;
   },
 
   // Create new configuration
   createConfiguration: async (config: Partial<PsychometricConfiguration>): Promise<PsychometricConfiguration> => {
-    const response = await api.post('/admin/psychometric/config', config);
+    const response = await psychometricApi.post('/admin/psychometric/config', config);
     return response.data;
   },
 
   // Update configuration
   updateConfiguration: async (id: string, updates: Partial<PsychometricConfiguration>): Promise<PsychometricConfiguration> => {
-    const response = await api.put(`/admin/psychometric/config/${id}`, updates);
+    const response = await psychometricApi.put(`/admin/psychometric/config/${id}`, updates);
     return response.data;
   },
 
   // Activate configuration
   activateConfiguration: async (id: string): Promise<PsychometricConfiguration> => {
-    const response = await api.put(`/admin/psychometric/config/${id}/activate`);
+    const response = await psychometricApi.put(`/admin/psychometric/config/${id}/activate`);
     return response.data;
   },
 
   // Delete configuration
   deleteConfiguration: async (id: string): Promise<void> => {
-    await api.delete(`/admin/psychometric/config/${id}`);
+    await psychometricApi.delete(`/admin/psychometric/config/${id}`);
   },
 
   // Clear cache
   clearCache: async (): Promise<void> => {
-    await api.post('/admin/psychometric/config/cache/clear');
+    await psychometricApi.post('/admin/psychometric/config/cache/clear');
   },
 };
 
