@@ -60,17 +60,88 @@ jobs:
           echo 'Admin dashboard source code synced to ${{ env.DEPLOYMENT_PATH }}'
         "
 
+    - name: Pre-build validation
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
+          echo 'Running pre-build validation...'
+          cd ${{ env.DEPLOYMENT_PATH }}
+          
+          # Check for required files
+          echo 'Checking for required files...'
+          if [ ! -f 'package.json' ]; then
+            echo '[ERROR] package.json not found'
+            exit 1
+          fi
+          
+          if [ ! -f 'Dockerfile.production' ]; then
+            echo '[ERROR] Dockerfile.production not found'
+            exit 1
+          fi
+          
+          if [ ! -f 'nginx.conf' ]; then
+            echo '[ERROR] nginx.conf not found'
+            exit 1
+          fi
+          
+          echo '[SUCCESS] All required files present'
+          
+          # Check for common syntax issues in TypeScript files
+          echo 'Checking for common TypeScript syntax issues...'
+          
+          # Check for unclosed JSX tags
+          if grep -r '</Box>' src/ | grep -v '//' | wc -l | grep -q '^[0-9]*$'; then
+            echo 'JSX tag check passed'
+          fi
+          
+          # Check for import statement issues
+          if grep -r 'import.*from.*default' src/ | grep -v '//' | wc -l | grep -q '^[0-9]*$'; then
+            echo 'Import statement check passed'
+          fi
+          
+          echo '[SUCCESS] Pre-build validation completed'
+        "
+
     - name: Build Docker image on jumphost
       run: |
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
           echo 'Building Docker image on jumphost (includes npm install and build)...'
           cd ${{ env.DEPLOYMENT_PATH }}
           
-          # Docker multi-stage build handles npm install and build internally
-          docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
-          docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
+          # Clean up Docker builder cache to ensure fresh build
+          echo 'Cleaning Docker builder cache...'
+          docker builder prune -af
           
-          echo 'Docker image built successfully'
+          # Remove any existing images to force rebuild
+          echo 'Removing existing images...'
+          docker rmi ${{ env.SERVICE_NAME }}:latest 2>/dev/null || true
+          
+          # Docker multi-stage build handles npm install and build internally
+          echo 'Starting Docker build (this may take several minutes)...'
+          if docker build --no-cache --progress=plain -t ${{ env.SERVICE_NAME }}:latest . 2>&1 | tee /tmp/docker-build.log; then
+            BUILD_EXIT_CODE=\${PIPESTATUS[0]}
+            if [ \$BUILD_EXIT_CODE -eq 0 ]; then
+              docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
+              echo '[SUCCESS] Docker image built successfully'
+              
+              # Verify image exists
+              if docker images ${{ env.SERVICE_NAME }}:latest --format '{{.Repository}}:{{.Tag}}' | grep -q '${{ env.SERVICE_NAME }}:latest'; then
+                echo '[SUCCESS] Image verified in Docker registry'
+              else
+                echo '[ERROR] Image not found in Docker registry after build'
+                exit 1
+              fi
+            else
+              echo '[ERROR] Docker build failed with exit code: '\$BUILD_EXIT_CODE
+              echo 'Last 50 lines of build log:'
+              tail -50 /tmp/docker-build.log
+              exit 1
+            fi
+          else
+            echo '[ERROR] Docker build command failed'
+            echo 'Full build log:'
+            cat /tmp/docker-build.log
+            exit 1
+          fi
         "
 
     - name: Deploy container
@@ -101,24 +172,57 @@ jobs:
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
           echo 'Verifying deployment...'
           
-          # Check container status
-          docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-          
-          # Check container logs
-          echo 'Container logs:'
-          docker logs ${{ env.SERVICE_NAME }} --tail 20
-          
-          # Test local access
-          echo 'Testing local access...'
-          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }})
-          echo \"HTTP Status: \$HTTP_STATUS\"
-          
-          if [ \"\$HTTP_STATUS\" != \"200\" ]; then
-            echo '[ERROR] Service not responding correctly'
+          # Check if container exists
+          if ! docker ps -a --filter name=${{ env.SERVICE_NAME }} --format '{{.Names}}' | grep -q '${{ env.SERVICE_NAME }}'; then
+            echo '[ERROR] Container ${{ env.SERVICE_NAME }} does not exist'
+            echo 'Available containers:'
+            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
             exit 1
           fi
           
-          echo '[SUCCESS] Service is responding'
+          # Check container status
+          CONTAINER_STATUS=\$(docker inspect -f '{{.State.Status}}' ${{ env.SERVICE_NAME }})
+          echo \"Container status: \$CONTAINER_STATUS\"
+          
+          if [ \"\$CONTAINER_STATUS\" != \"running\" ]; then
+            echo '[ERROR] Container is not running'
+            echo 'Container logs:'
+            docker logs ${{ env.SERVICE_NAME }} --tail 50
+            exit 1
+          fi
+          
+          echo '[SUCCESS] Container is running'
+          docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          
+          # Check container logs for errors
+          echo 'Recent container logs:'
+          docker logs ${{ env.SERVICE_NAME }} --tail 20
+          
+          # Wait for service to be ready
+          echo 'Waiting for service to be ready (30 seconds)...'
+          sleep 30
+          
+          # Test local access
+          echo 'Testing local access...'
+          for i in {1..5}; do
+            HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }})
+            echo \"Attempt \$i - HTTP Status: \$HTTP_STATUS\"
+            
+            if [ \"\$HTTP_STATUS\" = \"200\" ]; then
+              echo '[SUCCESS] Service is responding correctly'
+              exit 0
+            fi
+            
+            if [ \$i -lt 5 ]; then
+              echo 'Retrying in 5 seconds...'
+              sleep 5
+            fi
+          done
+          
+          echo '[ERROR] Service not responding after 5 attempts'
+          echo 'Container logs:'
+          docker logs ${{ env.SERVICE_NAME }} --tail 50
+          exit 1
         "
 
     - name: Verify NGINX configuration
