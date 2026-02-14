@@ -1020,8 +1020,8 @@ const Psychometric: React.FC = () => {
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.sections?.summary || false}
-            onChange={(e) => updateConfigField('reporting.sections.summary', e.target.checked)}
+            checked={editedConfig?.reporting?.sections?.executiveSummary || false}
+            onChange={(e) => updateConfigField('reporting.sections.executiveSummary', e.target.checked)}
           />
           <Label>Executive Summary</Label>
         </CheckboxGroup>
@@ -1038,28 +1038,73 @@ const Psychometric: React.FC = () => {
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.sections?.interpretation || false}
-            onChange={(e) => updateConfigField('reporting.sections.interpretation', e.target.checked)}
+            checked={editedConfig?.reporting?.sections?.traitDescriptions || false}
+            onChange={(e) => updateConfigField('reporting.sections.traitDescriptions', e.target.checked)}
           />
-          <Label>Score Interpretation</Label>
+          <Label>Trait Descriptions</Label>
         </CheckboxGroup>
 
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.sections?.comparisons || false}
-            onChange={(e) => updateConfigField('reporting.sections.comparisons', e.target.checked)}
+            checked={editedConfig?.reporting?.sections?.strengthsWeaknesses || false}
+            onChange={(e) => updateConfigField('reporting.sections.strengthsWeaknesses', e.target.checked)}
           />
-          <Label>Normative Comparisons</Label>
+          <Label>Strengths & Weaknesses</Label>
         </CheckboxGroup>
 
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.sections?.recommendations || false}
-            onChange={(e) => updateConfigField('reporting.sections.recommendations', e.target.checked)}
+            checked={editedConfig?.reporting?.sections?.careerRecommendations || false}
+            onChange={(e) => updateConfigField('reporting.sections.careerRecommendations', e.target.checked)}
           />
           <Label>Career Recommendations</Label>
+        </CheckboxGroup>
+
+        <CheckboxGroup>
+          <Checkbox
+            type="checkbox"
+            checked={editedConfig?.reporting?.sections?.developmentSuggestions || false}
+            onChange={(e) => updateConfigField('reporting.sections.developmentSuggestions', e.target.checked)}
+          />
+          <Label>Development Suggestions</Label>
+        </CheckboxGroup>
+
+        <CheckboxGroup>
+          <Checkbox
+            type="checkbox"
+            checked={editedConfig?.reporting?.sections?.validityInformation || false}
+            onChange={(e) => updateConfigField('reporting.sections.validityInformation', e.target.checked)}
+          />
+          <Label>Validity Information</Label>
+        </CheckboxGroup>
+
+        <CheckboxGroup>
+          <Checkbox
+            type="checkbox"
+            checked={editedConfig?.reporting?.sections?.confidenceIntervals || false}
+            onChange={(e) => updateConfigField('reporting.sections.confidenceIntervals', e.target.checked)}
+          />
+          <Label>Confidence Intervals</Label>
+        </CheckboxGroup>
+
+        <CheckboxGroup>
+          <Checkbox
+            type="checkbox"
+            checked={editedConfig?.reporting?.sections?.percentileRanks || false}
+            onChange={(e) => updateConfigField('reporting.sections.percentileRanks', e.target.checked)}
+          />
+          <Label>Percentile Ranks</Label>
+        </CheckboxGroup>
+
+        <CheckboxGroup>
+          <Checkbox
+            type="checkbox"
+            checked={editedConfig?.reporting?.sections?.comparisonToNorms || false}
+            onChange={(e) => updateConfigField('reporting.sections.comparisonToNorms', e.target.checked)}
+          />
+          <Label>Comparison to Norms</Label>
         </CheckboxGroup>
 
         <CheckboxGroup>
@@ -1069,15 +1114,6 @@ const Psychometric: React.FC = () => {
             onChange={(e) => updateConfigField('reporting.sections.detailedAnalysis', e.target.checked)}
           />
           <Label>Detailed Analysis</Label>
-        </CheckboxGroup>
-
-        <CheckboxGroup>
-          <Checkbox
-            type="checkbox"
-            checked={editedConfig?.reporting?.sections?.validityIndicators || false}
-            onChange={(e) => updateConfigField('reporting.sections.validityIndicators', e.target.checked)}
-          />
-          <Label>Validity Indicators</Label>
         </CheckboxGroup>
       </FormGrid>
 
@@ -1102,38 +1138,28 @@ const Psychometric: React.FC = () => {
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.visualizations?.barCharts || false}
-            onChange={(e) => updateConfigField('reporting.visualizations.barCharts', e.target.checked)}
+            checked={editedConfig?.reporting?.visualizations?.includeCharts || false}
+            onChange={(e) => updateConfigField('reporting.visualizations.includeCharts', e.target.checked)}
           />
-          <Label>Bar Charts</Label>
+          <Label>Include Charts</Label>
         </CheckboxGroup>
 
-        <CheckboxGroup>
-          <Checkbox
-            type="checkbox"
-            checked={editedConfig?.reporting?.visualizations?.radarCharts || false}
-            onChange={(e) => updateConfigField('reporting.visualizations.radarCharts', e.target.checked)}
-          />
-          <Label>Radar/Spider Charts</Label>
-        </CheckboxGroup>
-
-        <CheckboxGroup>
-          <Checkbox
-            type="checkbox"
-            checked={editedConfig?.reporting?.visualizations?.percentileCharts || false}
-            onChange={(e) => updateConfigField('reporting.visualizations.percentileCharts', e.target.checked)}
-          />
-          <Label>Percentile Charts</Label>
-        </CheckboxGroup>
-
-        <CheckboxGroup>
-          <Checkbox
-            type="checkbox"
-            checked={editedConfig?.reporting?.visualizations?.distributionCurves || false}
-            onChange={(e) => updateConfigField('reporting.visualizations.distributionCurves', e.target.checked)}
-          />
-          <Label>Distribution Curves</Label>
-        </CheckboxGroup>
+        <FormGroup>
+          <Label>Chart Types</Label>
+          <Select
+            multiple
+            value={editedConfig?.reporting?.visualizations?.chartTypes || []}
+            onChange={(e) => {
+              const options = Array.from(e.target.selectedOptions, option => option.value);
+              updateConfigField('reporting.visualizations.chartTypes', options);
+            }}
+          >
+            <option value="bar">Bar Charts</option>
+            <option value="radar">Radar/Spider Charts</option>
+            <option value="percentile">Percentile Charts</option>
+            <option value="line">Line Charts</option>
+          </Select>
+        </FormGroup>
 
         <FormGroup>
           <Label>Color Scheme</Label>
@@ -1141,11 +1167,13 @@ const Psychometric: React.FC = () => {
             value={editedConfig?.reporting?.visualizations?.colorScheme || 'default'}
             onChange={(e) => updateConfigField('reporting.visualizations.colorScheme', e.target.value)}
           >
-            <option value="default">Default (Blue/Green)</option>
-            <option value="professional">Professional (Gray/Blue)</option>
-            <option value="vibrant">Vibrant (Multi-color)</option>
-            <option value="accessible">Accessible (High Contrast)</option>
-            <option value="monochrome">Monochrome (Grayscale)</option>
+            <option value="default">Default</option>
+            <option value="colorblind-friendly">Colorblind Friendly</option>
+            <option value="grayscale">Grayscale</option>
+            <option value="professional">Professional</option>
+            <option value="vibrant">Vibrant</option>
+            <option value="accessible">Accessible</option>
+            <option value="monochrome">Monochrome</option>
           </Select>
         </FormGroup>
       </FormGrid>
@@ -1168,10 +1196,10 @@ const Psychometric: React.FC = () => {
         <CheckboxGroup>
           <Checkbox
             type="checkbox"
-            checked={editedConfig?.reporting?.localization?.multiLanguageSupport || false}
-            onChange={(e) => updateConfigField('reporting.localization.multiLanguageSupport', e.target.checked)}
+            checked={editedConfig?.reporting?.localization?.includeTranslations || false}
+            onChange={(e) => updateConfigField('reporting.localization.includeTranslations', e.target.checked)}
           />
-          <Label>Enable Multi-Language Support</Label>
+          <Label>Include Translations</Label>
         </CheckboxGroup>
       </FormGrid>
 
@@ -1217,7 +1245,7 @@ const Psychometric: React.FC = () => {
           <Label>Default Export Format</Label>
           <Select
             value={editedConfig?.reporting?.exportFormats?.default || 'pdf'}
-            onChange={(e) => updateConfigField('reporting.exportFormats.default', e.target.value)}
+            onChange={(e) => updateConfigField('reporting.exportFormats.default', e.target.value as 'pdf' | 'html' | 'json' | 'csv')}
           >
             <option value="pdf">PDF</option>
             <option value="html">HTML</option>

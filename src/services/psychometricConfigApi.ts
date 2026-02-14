@@ -1,19 +1,4 @@
-import { psychometricApi } from './api';
-
-export interface PsychometricConfiguration {
-  _id?: string;
-  version: string;
-  lastModified: Date;
-  modifiedBy: string;
-  isActive: boolean;
-  validity: ValidityConfiguration;
-  interpretation: InterpretationConfiguration;
-  reliability: ReliabilityConfiguration;
-  normativeData: NormativeDataConfiguration;
-  questionBank: QuestionBankConfiguration;
-  scoring: ScoringConfiguration;
-  reporting: ReportingConfiguration;
-}
+﻿import { psychometricApi } from './api';
 
 export interface ValidityConfiguration {
   minCompletionRate: number;
@@ -155,124 +140,148 @@ export interface QuestionBankConfiguration {
 }
 
 export interface ScoringConfiguration {
-  method: 'ipip' | 'irt' | 'classical' | 'hybrid';
-  rawScores: {
-    method: 'sum' | 'average' | 'weighted';
+  method?: 'ipip' | 'irt' | 'classical' | 'hybrid';
+  rawScores?: {
+    method?: 'sum' | 'average' | 'weighted';
     calculationMethod?: 'sum' | 'average' | 'weighted';
-    reverseScoring: boolean;
+    reverseScoring?: boolean;
   };
-  normalization: {
-    method: 'z-score' | 'percentile' | 't-score' | 'sten' | 'zScore' | 'stanine';
-    scale: { min: number; max: number };
+  normalization?: {
+    method?: 'z-score' | 'percentile' | 't-score' | 'sten' | 'zScore' | 'stanine';
+    scale?: { min: number; max: number };
     targetScale?: { min: number; max: number };
   };
-  weighted: {
-    enabled: boolean;
-    weights: Record<string, number>;
+  weighted?: {
+    enabled?: boolean;
+    weights?: Record<string, number>;
   };
   weightedScoring?: {
-    enabled: boolean;
+    enabled?: boolean;
     method?: 'itemDiscrimination' | 'itemDifficulty' | 'factorLoading' | 'custom';
   };
-  outliers: {
-    enabled: boolean;
-    method: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
-    threshold: number;
-    action: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
+  outliers?: {
+    enabled?: boolean;
+    method?: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
+    threshold?: number;
+    action?: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
   };
   outlierDetection?: {
-    enabled: boolean;
-    method: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
-    threshold: number;
-    action: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
+    enabled?: boolean;
+    method?: 'iqr' | 'z-score' | 'mad' | 'zScore' | 'mahalanobis';
+    threshold?: number;
+    action?: 'flag' | 'remove' | 'winsorize' | 'exclude' | 'transform';
   };
-  missingData: {
-    method: 'mean-imputation' | 'median-imputation' | 'exclude' | 'pro-rate' | 'proRate' | 'meanImputation' | 'multipleImputation';
-    maxMissingPerTrait: number;
+  missingData?: {
+    method?: 'mean-imputation' | 'median-imputation' | 'exclude' | 'pro-rate' | 'proRate' | 'meanImputation' | 'multipleImputation';
+    maxMissingPerTrait?: number;
     maxMissingOverall?: number;
   };
 }
 
 export interface ReportingConfiguration {
   sections: {
-    executiveSummary: boolean;
-    traitScores: boolean;
-    traitDescriptions: boolean;
-    strengthsWeaknesses: boolean;
-    careerRecommendations: boolean;
-    developmentSuggestions: boolean;
-    validityInformation: boolean;
-    confidenceIntervals: boolean;
-    percentileRanks: boolean;
-    comparisonToNorms: boolean;
-    detailedAnalysis: boolean;
+    executiveSummary?: boolean;
+    summary?: boolean;
+    traitScores?: boolean;
+    traitDescriptions?: boolean;
+    interpretation?: boolean;
+    strengthsWeaknesses?: boolean;
+    careerRecommendations?: boolean;
+    developmentSuggestions?: boolean;
+    validityInformation?: boolean;
+    validityIndicators?: boolean;
+    confidenceIntervals?: boolean;
+    percentileRanks?: boolean;
+    comparisonToNorms?: boolean;
+    comparisons?: boolean;
+    detailedAnalysis?: boolean;
+    recommendations?: boolean;
   };
-  detailLevel: 'brief' | 'standard' | 'comprehensive';
+  detailLevel?: 'brief' | 'standard' | 'comprehensive' | 'detailed';
   visualizations: {
-    includeCharts: boolean;
-    chartTypes: ('bar' | 'radar' | 'line' | 'percentile')[];
-    colorScheme: 'default' | 'colorblind-friendly' | 'grayscale';
+    includeCharts?: boolean;
+    chartTypes?: ('bar' | 'radar' | 'line' | 'percentile')[];
+    colorScheme?: 'default' | 'colorblind-friendly' | 'grayscale' | 'professional' | 'vibrant' | 'accessible' | 'monochrome';
+    barCharts?: boolean;
+    radarCharts?: boolean;
+    percentileCharts?: boolean;
+    distributionCurves?: boolean;
   };
   localization: {
-    defaultLanguage: string;
-    availableLanguages: string[];
-    includeTranslations: boolean;
+    defaultLanguage?: string;
+    availableLanguages?: string[];
+    includeTranslations?: boolean;
+    multiLanguageSupport?: boolean;
   };
-  export: {
-    availableFormats: ('pdf' | 'html' | 'json' | 'csv')[];
-    defaultFormat: 'pdf' | 'html' | 'json' | 'csv';
+  export?: {
+    availableFormats?: ('pdf' | 'html' | 'json' | 'csv')[];
+    defaultFormat?: 'pdf' | 'html' | 'json' | 'csv';
   };
-  privacy: {
-    anonymizeData: boolean;
-    includeRawScores: boolean;
-    includeAnswerDetails: boolean;
-    dataRetentionDays: number;
+  exportFormats: {
+    pdf?: boolean;
+    html?: boolean;
+    json?: boolean;
+    csv?: boolean;
+    default?: 'pdf' | 'html' | 'json' | 'csv';
+  };
+  privacy?: {
+    anonymizeData?: boolean;
+    includeRawScores?: boolean;
+    includeAnswerDetails?: boolean;
+    dataRetentionDays?: number;
   };
 }
 
+export interface PsychometricConfiguration {
+  _id?: string;
+  version: string;
+  lastModified: Date;
+  modifiedBy: string;
+  isActive: boolean;
+  validity: ValidityConfiguration;
+  interpretation: InterpretationConfiguration;
+  reliability: ReliabilityConfiguration;
+  normativeData: NormativeDataConfiguration;
+  questionBank: QuestionBankConfiguration;
+  scoring: ScoringConfiguration;
+  reporting: ReportingConfiguration;
+}
+
 const psychometricConfigApi = {
-  // Get active configuration
   getActiveConfiguration: async (): Promise<PsychometricConfiguration> => {
     const response = await psychometricApi.get('/admin/psychometric/config');
     return response.data;
   },
 
-  // Get all configurations
   getAllConfigurations: async (): Promise<PsychometricConfiguration[]> => {
     const response = await psychometricApi.get('/admin/psychometric/config/all');
     return response.data;
   },
 
-  // Get configuration by ID
   getConfigurationById: async (id: string): Promise<PsychometricConfiguration> => {
     const response = await psychometricApi.get(`/admin/psychometric/config/${id}`);
     return response.data;
   },
 
-  // Create new configuration
   createConfiguration: async (config: Partial<PsychometricConfiguration>): Promise<PsychometricConfiguration> => {
     const response = await psychometricApi.post('/admin/psychometric/config', config);
     return response.data;
   },
 
-  // Update configuration
   updateConfiguration: async (id: string, updates: Partial<PsychometricConfiguration>): Promise<PsychometricConfiguration> => {
     const response = await psychometricApi.put(`/admin/psychometric/config/${id}`, updates);
     return response.data;
   },
 
-  // Activate configuration
   activateConfiguration: async (id: string): Promise<PsychometricConfiguration> => {
     const response = await psychometricApi.put(`/admin/psychometric/config/${id}/activate`);
     return response.data;
   },
 
-  // Delete configuration
   deleteConfiguration: async (id: string): Promise<void> => {
     await psychometricApi.delete(`/admin/psychometric/config/${id}`);
   },
 
-  // Clear cache
   clearCache: async (): Promise<void> => {
     await psychometricApi.post('/admin/psychometric/config/cache/clear');
   },
