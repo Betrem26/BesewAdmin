@@ -237,8 +237,8 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
   {
     section: 'Psychometric & Assessment',
     items: [
-      { path: '/dashboard/psychometric', label: 'Psychometric Questions', icon: <FiTarget />, permission: 'MANAGE_PSYCHOMETRIC' },
-      { path: '/dashboard/psychometric-analytics', label: 'Psychometric Analytics', icon: <FiBarChart2 />, permission: 'VIEW_PSYCHOMETRIC_ANALYTICS' },
+      { path: '/dashboard/psychometric', label: 'Psychometric Questions', icon: <FiTarget /> },
+      { path: '/dashboard/psychometric-analytics', label: 'Psychometric Analytics', icon: <FiBarChart2 /> },
     ],
   },
   {
