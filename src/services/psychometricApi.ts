@@ -40,7 +40,7 @@ export const psychometricAdminApi = {
   generateQuestions: async (data: GenerateQuestionsDto): Promise<GenerateQuestionsResponse> => {
     try {
       const response = await psychometricApi.post<GenerateQuestionsResponse>(
-        '/admin/ai/generate-questions',
+        '/api/admin/ai/generate-questions',
         data
       );
       return response.data;
@@ -55,7 +55,7 @@ export const psychometricAdminApi = {
   reviewQuestion: async (data: AnalystReviewDto): Promise<{ status: string }> => {
     try {
       const response = await psychometricApi.post<{ status: string }>(
-        '/admin/questions/review',
+        '/api/admin/questions/review',
         data
       );
       return response.data;
