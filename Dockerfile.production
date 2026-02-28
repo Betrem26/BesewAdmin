@@ -6,8 +6,9 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production=false
+# Install all dependencies (including devDependencies for build)
+# Use npm ci for clean, reproducible builds
+RUN npm ci
 
 # Copy source code
 COPY . .
