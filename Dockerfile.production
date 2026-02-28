@@ -1,6 +1,5 @@
 # Multi-stage build for Admin Dashboard (Vite + React)
-# Use full node image instead of alpine for better npm compatibility
-FROM node:18 AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
@@ -8,7 +7,6 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-# Use npm install instead of npm ci for better compatibility
 RUN npm install
 
 # Copy source code
