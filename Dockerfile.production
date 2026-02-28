@@ -7,8 +7,10 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including devDependencies for build)
-# Use npm ci for more reliable installs and add error handling
-RUN npm ci || npm install --legacy-peer-deps
+# Clean npm cache first, then install with explicit error handling
+RUN npm cache clean --force && \
+    (npm ci --prefer-offline --no-audit || npm install --legacy-peer-deps --no-audit) && \
+    npm list typescript vite || (echo "ERROR: Required dependencies not installed" && exit 1)
 
 # Copy source code
 COPY . .
