@@ -15,8 +15,9 @@ import {
 } from '../../store/features/psychometricSlice';
 import { PsychometricConfiguration } from '../../services/psychometricConfigApi';
 import { toast } from 'react-toastify';
+import ModelManagement from '../../components/psychometric/ModelManagement';
 
-type TabType = 'list' | 'validity' | 'interpretation' | 'reliability' | 'normative' | 'questionBank' | 'scoring' | 'reporting';
+type TabType = 'list' | 'models' | 'validity' | 'interpretation' | 'reliability' | 'normative' | 'questionBank' | 'scoring' | 'reporting';
 
 const Psychometric: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -98,6 +99,223 @@ const Psychometric: React.FC = () => {
 
   const handleClearCache = async () => {
     await dispatch(clearConfigCache());
+    toast.success('Configuration cache cleared');
+  };
+
+  const handleModelCreated = (model: any) => {
+    // Create a new configuration with the model data
+    const newConfig: Partial<PsychometricConfiguration> = {
+      version: '1.0.0',
+      modifiedBy: 'admin',
+      isActive: false,
+      // Add default configuration values
+      validity: {
+        minCompletionRate: 0.8,
+        minQuestionsPerTrait: 10,
+        validityScoreThresholds: {
+          invalid: 0.5,
+          questionable: 0.7,
+          acceptable: 0.7,
+        },
+        inconsistency: {
+          enabled: true,
+          maxStandardDeviation: 30,
+          minItemsForCheck: 3,
+        },
+        acquiescence: {
+          enabled: true,
+          maxAgreeRate: 0.8,
+          minResponsesForCheck: 10,
+        },
+        extremeResponse: {
+          enabled: true,
+          maxExtremeRate: 0.7,
+          minResponsesForCheck: 10,
+        },
+        randomResponse: {
+          enabled: true,
+          maxAlternatingRate: 0.6,
+          maxSameResponseRate: 0.8,
+          minResponsesForCheck: 10,
+        },
+        socialDesirability: {
+          enabled: true,
+          highScoreThreshold: 85,
+          traitsToCheck: model.traits.map((t: any) => t.name),
+        },
+      },
+      interpretation: {
+        bands: {
+          veryLow: { min: 0, max: 20, label: 'Very Low' },
+          low: { min: 20, max: 40, label: 'Low' },
+          average: { min: 40, max: 60, label: 'Average' },
+          high: { min: 60, max: 80, label: 'High' },
+          veryHigh: { min: 80, max: 100, label: 'Very High' },
+        },
+        percentiles: {
+          enabled: true,
+          displayFormat: 'percentile',
+        },
+        zScores: {
+          enabled: true,
+          displayInReports: false,
+        },
+        traitOverrides: {},
+      },
+      reliability: {
+        cronbachAlpha: {
+          enabled: true,
+          minAcceptable: 0.7,
+          minGood: 0.8,
+          minExcellent: 0.9,
+        },
+        standardError: {
+          enabled: true,
+          maxAcceptable: 5.0,
+        },
+        confidenceIntervals: {
+          enabled: true,
+          defaultLevel: 0.95,
+          availableLevels: [0.90, 0.95, 0.99],
+        },
+        testRetest: {
+          enabled: false,
+          minCorrelation: 0.7,
+          maxDaysBetweenTests: 30,
+        },
+      },
+      normativeData: {
+        dataSource: {
+          primary: 'ipip',
+          fallback: 'research',
+        },
+        normType: 'local',
+        demographics: {
+          enabled: false,
+          adjustForAge: false,
+          adjustForGender: false,
+          adjustForEducation: false,
+          adjustForCulture: false,
+        },
+        sampleSize: {
+          minForLocalNorms: 100,
+          minForDemographicAdjustment: 50,
+        },
+        refresh: {
+          autoUpdate: true,
+          updateIntervalDays: 90,
+          minNewSamples: 50,
+        },
+      },
+      questionBank: {
+        questionsPerAssessment: {
+          min: 15,
+          max: 50,
+          default: 25,
+        },
+        questionsPerTrait: {
+          min: 3,
+          max: 15,
+          default: 5,
+        },
+        difficulty: {
+          enabled: true,
+          distribution: {
+            easy: 0.3,
+            medium: 0.5,
+            hard: 0.2,
+          },
+        },
+        adaptive: {
+          enabled: false,
+          startDifficulty: 'medium',
+          adjustmentThreshold: 0.7,
+        },
+        repetition: {
+          preventRepetition: true,
+          cooldownDays: 30,
+          maxRepetitionsPerYear: 3,
+        },
+        aiGeneration: {
+          enabled: true,
+          autoGenerate: false,
+          minQualityScore: 0.8,
+          reviewRequired: true,
+        },
+      },
+      scoring: {
+        method: model.scoringMethod,
+        rawScores: {
+          method: 'sum',
+          reverseScoring: true,
+        },
+        normalization: {
+          method: 'z-score',
+          scale: {
+            min: 0,
+            max: 100,
+          },
+        },
+        weighted: {
+          enabled: false,
+          weights: {},
+        },
+        outliers: {
+          enabled: true,
+          method: 'z-score',
+          threshold: 3.0,
+          action: 'flag',
+        },
+        missingData: {
+          method: 'pro-rate',
+          maxMissingPerTrait: 0.2,
+        },
+      },
+      reporting: {
+        sections: {
+          executiveSummary: true,
+          traitScores: true,
+          traitDescriptions: true,
+          strengthsWeaknesses: true,
+          careerRecommendations: true,
+          developmentSuggestions: true,
+          validityInformation: true,
+          confidenceIntervals: true,
+          percentileRanks: true,
+          comparisonToNorms: true,
+          detailedAnalysis: false,
+        },
+        detailLevel: 'standard',
+        visualizations: {
+          includeCharts: true,
+          chartTypes: ['bar', 'radar', 'percentile'],
+          colorScheme: 'default',
+        },
+        localization: {
+          defaultLanguage: 'en',
+          availableLanguages: ['en', 'am'],
+          includeTranslations: true,
+        },
+        exportFormats: {
+          pdf: true,
+          html: true,
+          json: true,
+          csv: false,
+          default: 'pdf' as 'pdf' | 'html' | 'json' | 'csv',
+        },
+        privacy: {
+          anonymizeData: false,
+          includeRawScores: true,
+          includeAnswerDetails: false,
+          dataRetentionDays: 365,
+        },
+      },
+    };
+
+    setIsCreating(true);
+    setEditedConfig(newConfig);
+    setActiveTab('validity');
+    toast.success(`Model "${model.displayName}" created! Configure the settings and save.`);
   };
 
   const updateConfigField = (path: string, value: any) => {
@@ -121,6 +339,7 @@ const Psychometric: React.FC = () => {
       <SectionHeader>
         <SectionTitle>Psychometric Configurations</SectionTitle>
         <ButtonGroup>
+          <Button onClick={() => setActiveTab('models')}>Create New Model</Button>
           <Button onClick={handleCreateNew}>Create New Configuration</Button>
           <Button onClick={handleClearCache} variant="secondary">Clear Cache</Button>
         </ButtonGroup>
@@ -1303,6 +1522,8 @@ const Psychometric: React.FC = () => {
     switch (activeTab) {
       case 'list':
         return renderConfigurationList();
+      case 'models':
+        return <ModelManagement onModelCreated={handleModelCreated} />;
       case 'validity':
         return renderValidityTab();
       case 'interpretation':
@@ -1340,6 +1561,9 @@ const Psychometric: React.FC = () => {
 
       {activeTab !== 'list' && (
         <TabContainer>
+          <TabButton active={activeTab === 'models'} onClick={() => setActiveTab('models')}>
+            Model Management
+          </TabButton>
           <TabButton active={activeTab === 'validity'} onClick={() => setActiveTab('validity')}>
             Validity
           </TabButton>
