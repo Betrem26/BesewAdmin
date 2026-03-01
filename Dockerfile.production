@@ -6,11 +6,12 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
-# Clean npm cache first, then install with explicit error handling
-RUN npm cache clean --force && \
-    (npm ci --prefer-offline --no-audit || npm install --legacy-peer-deps --no-audit) && \
-    npm list typescript vite || (echo "ERROR: Required dependencies not installed" && exit 1)
+# Install yarn globally and use it for dependency installation
+# Yarn is more stable than npm in Alpine Linux environments
+# Use --network-timeout to handle slow connections
+RUN npm install -g yarn && \
+    yarn install --frozen-lockfile --network-timeout 100000 || \
+    yarn install --network-timeout 100000
 
 # Copy source code
 COPY . .
