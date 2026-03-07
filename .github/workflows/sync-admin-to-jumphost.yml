@@ -10,7 +10,7 @@ env:
   JUMPHOST_PORT: "250"
   JUMPHOST_USER: "startupadmin"
   JUMPHOST_PASSWORD: "Admin@2025"
-  DEPLOYMENT_PATH: "/mnt/data/srv_besew/frontend/admin"
+  DEPLOYMENT_PATH: "/mnt/data/besew/frontend/admin"
   SERVICE_NAME: "besew-admin-dashboard"
   CONTAINER_PORT: "3000"
   DOMAIN: "admin.besewonline.com"
