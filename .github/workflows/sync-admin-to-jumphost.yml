@@ -71,9 +71,13 @@ jobs:
           echo 'Building Docker image on jumphost (includes npm install and build)...'
           cd ${{ env.DEPLOYMENT_PATH }}
           
+          # Clean up build artifacts and caches
+          echo 'Cleaning up old build artifacts...'
+          echo 'Admin@2025' | sudo -S rm -rf dist node_modules
+          
           # Clean up Docker builder cache
           echo 'Cleaning Docker builder cache...'
-          docker builder prune -af
+          echo 'Admin@2025' | sudo -S docker builder prune -af
           
           # Remove existing images
           echo 'Removing existing images...'
@@ -81,7 +85,7 @@ jobs:
           
           # Docker multi-stage build handles npm install and build internally
           echo 'Starting Docker build (this may take several minutes)...'
-          docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
+          echo 'Admin@2025' | sudo -S docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
           docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
           
           echo 'Docker image built successfully'
@@ -92,12 +96,12 @@ jobs:
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
           echo 'Deploying admin dashboard container...'
           
-          # Stop and remove old container
-          docker stop ${{ env.SERVICE_NAME }} 2>/dev/null || true
-          docker rm ${{ env.SERVICE_NAME }} 2>/dev/null || true
+          # Stop and remove old container with sudo
+          echo 'Admin@2025' | sudo -S docker stop ${{ env.SERVICE_NAME }} 2>/dev/null || true
+          echo 'Admin@2025' | sudo -S docker rm -f ${{ env.SERVICE_NAME }} 2>/dev/null || true
           
-          # Start new container
-          docker run -d \
+          # Start new container with sudo
+          echo 'Admin@2025' | sudo -S docker run -d \
             --name ${{ env.SERVICE_NAME }} \
             --network backend_besew-network \
             -p ${{ env.CONTAINER_PORT }}:80 \
@@ -135,20 +139,12 @@ jobs:
           echo '[SUCCESS] Service is responding'
         "
 
-    - name: Verify NGINX configuration
+    - name: Reload NGINX
       run: |
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
-          echo 'Verifying NGINX configuration for admin dashboard...'
-          
-          # Check if NGINX config exists
-          if echo 'Admin@2025' | sudo -S test -f /etc/nginx/sites-enabled/admin-besewonline.conf; then
-            echo 'NGINX configuration exists'
-            echo 'Admin@2025' | sudo -S nginx -t
-            echo 'Admin@2025' | sudo -S systemctl reload nginx
-          else
-            echo '[WARNING] NGINX configuration not found'
-            echo 'Please configure NGINX manually for admin.besewonline.com'
-          fi
+          echo 'Reloading NGINX...'
+          echo 'Admin@2025' | sudo -S systemctl reload nginx
+          echo 'NGINX reloaded successfully'
         "
 
     - name: Test production deployment
