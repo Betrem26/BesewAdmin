@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with npm (handles optional dependencies better)
-RUN npm ci --omit=optional || npm install --omit=optional
+# Install all dependencies including dev dependencies (needed for tsc and vite)
+RUN npm ci || npm install
 
 # Copy source code
 COPY . .
