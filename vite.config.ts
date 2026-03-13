@@ -12,8 +12,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
-        // Suppress "use client" directive warnings from MUI icons
-        // These are harmless - the icons work correctly despite the warning
+        // Suppress "use client" directive warnings from:
+        // - react-toastify
+        // - @mui/material (all components)
+        // - @mui/icons-material (all icons)
+        // These are harmless - the libraries work correctly despite the warnings
         if (warning.code === 'MODULE_LEVEL_DIRECTIVE_ON_BUNDLED_MODULE') {
           return;
         }
