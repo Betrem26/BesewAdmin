@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies including dev dependencies (needed for tsc and vite)
+# Using npm ci for reproducible builds
 RUN npm ci
 
 # Copy source code
