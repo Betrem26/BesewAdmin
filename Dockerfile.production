@@ -1,5 +1,5 @@
 # Multi-stage build for Admin Dashboard (Vite + React)
-FROM node:18-alpine AS builder
+FROM node:18-slim AS builder
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies including dev dependencies (needed for tsc and vite)
-RUN npm ci || npm install
+RUN npm ci
 
 # Copy source code
 COPY . .
