@@ -88,12 +88,25 @@ jobs:
           echo 'Removing existing images...'
           docker rmi ${{ env.SERVICE_NAME }}:latest 2>/dev/null || true
           
-          # Docker multi-stage build handles npm install and build internally
+          # Docker multi-stage build with retry logic
           echo 'Starting Docker build (this may take several minutes)...'
-          echo 'Admin@2025' | sudo -S docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .
-          docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
-          
-          echo 'Docker image built successfully'
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
+            echo \"Build attempt \$((RETRY_COUNT + 1)) of \$MAX_RETRIES\"
+            if echo 'Admin@2025' | sudo -S docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .; then
+              echo 'Docker image built successfully'
+              docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
+              exit 0
+            fi
+            RETRY_COUNT=\$((RETRY_COUNT + 1))
+            if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
+              echo \"Build failed, retrying in 30 seconds...\"
+              sleep 30
+            fi
+          done
+          echo 'Docker build failed after \$MAX_RETRIES attempts'
+          exit 1
         "
 
     - name: Deploy container
