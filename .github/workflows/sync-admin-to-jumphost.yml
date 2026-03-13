@@ -38,6 +38,8 @@ jobs:
         echo "Saving Docker image to tar file..."
         docker save ${{ env.SERVICE_NAME }}:latest | gzip > admin-dashboard-image.tar.gz
         ls -lh admin-dashboard-image.tar.gz
+        echo "Verifying image tags before save:"
+        docker images | grep ${{ env.SERVICE_NAME }}
 
     - name: Transfer image and source to jumphost
       run: |
@@ -54,7 +56,18 @@ jobs:
           rm ~/admin-dashboard-image.tar.gz
           
           echo 'Docker image loaded successfully'
+          echo 'Verifying loaded image:'
           docker images | grep ${{ env.SERVICE_NAME }}
+          
+          # Verify the :latest tag exists
+          if docker image inspect ${{ env.SERVICE_NAME }}:latest > /dev/null 2>&1; then
+            echo '[SUCCESS] Image with :latest tag found'
+          else
+            echo '[ERROR] Image with :latest tag NOT found'
+            echo 'Available images:'
+            docker images | grep ${{ env.SERVICE_NAME }}
+            exit 1
+          fi
           
           # Extract source code for reference
           echo 'Extracting source code...'
@@ -95,8 +108,8 @@ jobs:
     - name: Build Docker image locally
       run: |
         echo "Building Docker image locally..."
-        docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .
-        docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:$(date +%Y%m%d-%H%M%S)
+        TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+        docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest -t ${{ env.SERVICE_NAME }}:${TIMESTAMP} .
         echo "Docker image built successfully"
         docker images | grep ${{ env.SERVICE_NAME }}
 
