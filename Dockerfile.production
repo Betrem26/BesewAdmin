@@ -1,4 +1,5 @@
 # Multi-stage build for Admin Dashboard (Vite + React)
+# Using node:18-slim for better npm compatibility in Docker
 FROM node:18-slim AS builder
 
 WORKDIR /app
