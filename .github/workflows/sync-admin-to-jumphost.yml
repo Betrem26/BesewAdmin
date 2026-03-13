@@ -62,6 +62,11 @@ jobs:
           tar -xzf ~/admin-dashboard.tar.gz
           rm ~/admin-dashboard.tar.gz
           
+          # Create Dockerfile symlink for Docker build compatibility
+          if [ ! -f Dockerfile ] && [ -f Dockerfile.production ]; then
+            cp Dockerfile.production Dockerfile
+          fi
+          
           echo 'Admin dashboard source code synced to ${{ env.DEPLOYMENT_PATH }}'
         "
 
@@ -85,7 +90,7 @@ jobs:
           
           # Docker multi-stage build handles npm install and build internally
           echo 'Starting Docker build (this may take several minutes)...'
-          echo 'Admin@2025' | sudo -S docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
+          echo 'Admin@2025' | sudo -S docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .
           docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
           
           echo 'Docker image built successfully'
