@@ -3,9 +3,9 @@ import { menuConfigApi } from '../../services/menuConfigApi';
 
 export const fetchAllMenuConfigs = createAsyncThunk(
   'menuConfig/fetchAll',
-  async (token: string, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      return await menuConfigApi.getAllMenuConfigs(token);
+      return await menuConfigApi.getAllMenuConfigs();
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to fetch menu configs');
     }
@@ -14,9 +14,9 @@ export const fetchAllMenuConfigs = createAsyncThunk(
 
 export const createMenuConfig = createAsyncThunk(
   'menuConfig/create',
-  async ({ data, token }: { data: any; token: string }, { rejectWithValue }) => {
+  async (data: any, { rejectWithValue }) => {
     try {
-      return await menuConfigApi.createMenuConfig(data, token);
+      return await menuConfigApi.createMenuConfig(data);
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to create menu config');
     }
@@ -25,9 +25,9 @@ export const createMenuConfig = createAsyncThunk(
 
 export const updateMenuConfig = createAsyncThunk(
   'menuConfig/update',
-  async ({ menuId, data, token }: { menuId: string; data: any; token: string }, { rejectWithValue }) => {
+  async ({ menuId, data }: { menuId: string; data: any }, { rejectWithValue }) => {
     try {
-      return await menuConfigApi.updateMenuConfig(menuId, data, token);
+      return await menuConfigApi.updateMenuConfig(menuId, data);
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to update menu config');
     }
@@ -36,9 +36,9 @@ export const updateMenuConfig = createAsyncThunk(
 
 export const deleteMenuConfig = createAsyncThunk(
   'menuConfig/delete',
-  async ({ menuId, token }: { menuId: string; token: string }, { rejectWithValue }) => {
+  async (menuId: string, { rejectWithValue }) => {
     try {
-      await menuConfigApi.deleteMenuConfig(menuId, token);
+      await menuConfigApi.deleteMenuConfig(menuId);
       return menuId;
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to delete menu config');
@@ -48,9 +48,9 @@ export const deleteMenuConfig = createAsyncThunk(
 
 export const bulkUpdateMenuConfigs = createAsyncThunk(
   'menuConfig/bulkUpdate',
-  async ({ updates, token }: { updates: any[]; token: string }, { rejectWithValue }) => {
+  async (updates: any[], { rejectWithValue }) => {
     try {
-      return await menuConfigApi.bulkUpdateMenuConfigs(updates, token);
+      return await menuConfigApi.bulkUpdateMenuConfigs(updates);
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to bulk update menu configs');
     }
@@ -59,10 +59,10 @@ export const bulkUpdateMenuConfigs = createAsyncThunk(
 
 export const seedDefaultMenus = createAsyncThunk(
   'menuConfig/seed',
-  async (token: string, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      await menuConfigApi.seedDefaultMenus(token);
-      return await menuConfigApi.getAllMenuConfigs(token);
+      await menuConfigApi.seedDefaultMenus();
+      return await menuConfigApi.getAllMenuConfigs();
     } catch (error: any) {
       return rejectWithValue(error.response?.data || 'Failed to seed default menus');
     }

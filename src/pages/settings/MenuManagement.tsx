@@ -29,13 +29,12 @@ const SubscriptionTier = {
 export const MenuManagement: React.FC = () => {
   const dispatch = useDispatch();
   const { items, loading, error, success } = useSelector((state: RootState) => state.menuConfig);
-  const token = localStorage.getItem('authToken') || '';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<any>({});
 
   useEffect(() => {
-    dispatch(fetchAllMenuConfigs(token) as any);
-  }, [dispatch, token]);
+    dispatch(fetchAllMenuConfigs() as any);
+  }, [dispatch]);
 
   const handleEdit = (item: any) => {
     setEditingId(item.menuId);
@@ -44,20 +43,20 @@ export const MenuManagement: React.FC = () => {
 
   const handleSave = async () => {
     if (editingId) {
-      dispatch(updateMenuConfig({ menuId: editingId, data: editData, token }) as any);
+      dispatch(updateMenuConfig({ menuId: editingId, data: editData }) as any);
       setEditingId(null);
     }
   };
 
   const handleDelete = (menuId: string) => {
     if (window.confirm('Are you sure you want to delete this menu item?')) {
-      dispatch(deleteMenuConfig({ menuId, token }) as any);
+      dispatch(deleteMenuConfig(menuId) as any);
     }
   };
 
   const handleSeedDefaults = () => {
     if (window.confirm('This will seed default menu configurations. Continue?')) {
-      dispatch(seedDefaultMenus(token) as any);
+      dispatch(seedDefaultMenus() as any);
     }
   };
 

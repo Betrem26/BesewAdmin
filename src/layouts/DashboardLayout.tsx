@@ -250,7 +250,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
   {
     section: 'System',
     items: [
-      { path: '/dashboard/settings', label: 'Settings', icon: <FiSettings /> },
+      { path: '/dashboard/settings', label: 'Menu Management', icon: <FiSettings /> },
     ],
   },
 ];
