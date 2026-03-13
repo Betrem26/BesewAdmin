@@ -89,15 +89,6 @@ const NavSection = styled.div`
   margin-bottom: 20px;
 `;
 
-const NavSectionTitle = styled.div`
-  padding: 10px 20px;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 600;
-  letter-spacing: 1px;
-`;
-
 const NavItem = styled.div<{ active: boolean }>`
   padding: 12px 20px;
   display: flex;
@@ -136,14 +127,59 @@ const MainContent = styled.main<{ sidebarOpen: boolean }>`
 
 const TopBar = styled.header`
   background: white;
-  padding: 15px 30px;
+  padding: 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
   position: sticky;
   top: 0;
   z-index: 100;
+`;
+
+const TopBarMain = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+  border-bottom: 1px solid #e0e0e0;
+`;
+
+const TabsContainer = styled.div`
+  display: flex;
+  overflow-x: auto;
+  padding: 0 30px;
+  gap: 5px;
+  background: #f9f9f9;
+  
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 2px;
+  }
+`;
+
+const Tab = styled.button<{ active: boolean }>`
+  padding: 12px 16px;
+  background: ${props => props.active ? '#3498db' : 'transparent'};
+  color: ${props => props.active ? 'white' : '#666'};
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: ${props => props.active ? '#2980b9' : '#e8e8e8'};
+  }
 `;
 
 const MenuButton = styled.button`
@@ -272,6 +308,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
 
 const DashboardLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>('Main');
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -305,25 +342,23 @@ const DashboardLayout: React.FC = () => {
 
         <Nav>
           {menuItems.map((section, idx) => {
+            // Only show items from active tab
+            if (section.section !== activeTab) return null;
+
             // Filter items based on permissions
             const visibleItems = section.items.filter(item => {
               if (!item.permission) return true;
               const hasPermission = checkPermission(item.permission as any);
-              console.log(`[Menu Debug] Section: ${section.section}, Item: ${item.label}, Permission: ${item.permission}, Has Permission: ${hasPermission}`);
               return hasPermission;
             });
 
             // Don't render section if no visible items
             if (visibleItems.length === 0) {
-              console.log(`[Menu Debug] Section "${section.section}" hidden - no visible items`);
               return null;
             }
 
-            console.log(`[Menu Debug] Section "${section.section}" visible with ${visibleItems.length} items`);
-
             return (
               <NavSection key={idx}>
-                <NavSectionTitle>{section.section}</NavSectionTitle>
                 {visibleItems.map((item) => (
                   <NavItem
                     key={item.path}
@@ -342,17 +377,31 @@ const DashboardLayout: React.FC = () => {
 
       <MainContent sidebarOpen={sidebarOpen}>
         <TopBar>
-          <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <FiMenu />
-          </MenuButton>
+          <TopBarMain>
+            <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
+              <FiMenu />
+            </MenuButton>
 
-          <UserInfo>
-            <UserName>{user?.phonenumber || 'Admin'}</UserName>
-            <LogoutButton onClick={handleLogout}>
-              <FiLogOut />
-              Logout
-            </LogoutButton>
-          </UserInfo>
+            <UserInfo>
+              <UserName>{user?.phonenumber || 'Admin'}</UserName>
+              <LogoutButton onClick={handleLogout}>
+                <FiLogOut />
+                Logout
+              </LogoutButton>
+            </UserInfo>
+          </TopBarMain>
+
+          <TabsContainer>
+            {menuItems.map((section) => (
+              <Tab
+                key={section.section}
+                active={activeTab === section.section}
+                onClick={() => setActiveTab(section.section)}
+              >
+                {section.section}
+              </Tab>
+            ))}
+          </TabsContainer>
         </TopBar>
 
         <ContentArea>
