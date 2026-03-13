@@ -1,22 +1,205 @@
 # Admin Dashboard - Developer Guide
 
+## Local Development Setup (Windows)
+
+### System Requirements
+
+**Minimum:**
+- Windows 10 or Windows 11
+- 8GB RAM (16GB recommended)
+- 5GB free disk space
+- Administrator access for npm global packages
+
+**Recommended:**
+- Windows 11 Pro
+- 16GB+ RAM
+- SSD with 10GB+ free space
+- Visual Studio Code or similar IDE
+
+### Step 1: Install Node.js
+
+1. Download Node.js 18.x LTS from [nodejs.org](https://nodejs.org/)
+   - **Version:** 18.19.0 LTS (or latest 18.x)
+   - **Download:** Windows Installer (.msi)
+
+2. Run the installer:
+   - Accept license agreement
+   - Choose installation path (default: `C:\Program Files\nodejs`)
+   - Check "Add to PATH" (important!)
+   - Check "Automatically install necessary tools"
+   - Complete installation
+
+3. Verify installation in PowerShell:
+   ```powershell
+   node --version    # Should show v18.x.x
+   npm --version     # Should show 9.x.x or higher
+   ```
+
+### Step 2: Install Git
+
+1. Download Git from [git-scm.com](https://git-scm.com/)
+   - **Version:** Latest (2.40+)
+   - **Download:** Windows 64-bit installer
+
+2. Run the installer:
+   - Accept license
+   - Choose installation path
+   - Select "Use Git from the command line and also from 3rd-party software"
+   - Choose "Checkout Windows-style, commit Unix-style line endings"
+   - Complete installation
+
+3. Verify installation:
+   ```powershell
+   git --version     # Should show git version 2.x.x
+   ```
+
+4. Configure Git (first time only):
+   ```powershell
+   git config --global user.name "Your Name"
+   git config --global user.email "your.email@example.com"
+   ```
+
+### Step 3: Clone Repository
+
+1. Create a development folder:
+   ```powershell
+   mkdir C:\dev
+   cd C:\dev
+   ```
+
+2. Clone the admin frontend repository:
+   ```powershell
+   git clone https://github.com/brookgit/bswadminfront.git
+   cd bswadminfront
+   ```
+
+3. Verify you're on main branch:
+   ```powershell
+   git branch          # Should show * main
+   git log --oneline  # Show recent commits
+   ```
+
+### Step 4: Install Dependencies
+
+1. Install npm packages:
+   ```powershell
+   npm install
+   # This creates node_modules/ folder (~500MB)
+   # Takes 2-5 minutes depending on internet speed
+   ```
+
+2. Verify installation:
+   ```powershell
+   npm list react      # Should show react version
+   npm list vite       # Should show vite version
+   ```
+
+### Step 5: Configure Environment
+
+1. Create `.env.local` file in project root:
+   ```powershell
+   # In bswadminfront folder
+   New-Item -Name ".env.local" -ItemType File
+   ```
+
+2. Add environment variables (for local development):
+   ```env
+   VITE_API_URL=http://localhost:1201
+   VITE_ACCOUNT_SERVICE=http://localhost:1201
+   VITE_CANDIDATE_SERVICE=http://localhost:1202
+   VITE_PARTY_SERVICE=http://localhost:1205
+   VITE_JOB_SERVICE=http://localhost:1250
+   VITE_NOTIFICATION_SERVICE=http://localhost:1206
+   VITE_COMMISSION_SERVICE=http://localhost:1207
+   VITE_PSYCHOMETRIC_SERVICE=http://localhost:1211
+   VITE_SEARCH_SERVICE=http://localhost:1208
+   VITE_REFERENCE_SERVICE=http://localhost:1209
+   VITE_CAREER_INTELLIGENCE_SERVICE=http://localhost:1212
+   ```
+
+### Step 6: Start Development Server
+
+1. Start the dev server:
+   ```powershell
+   npm run dev
+   ```
+
+2. Expected output:
+   ```
+   VITE v4.x.x  build 0.00s
+
+   ➜  Local:   http://localhost:5173/
+   ➜  press h to show help
+   ```
+
+3. Open browser and navigate to: `http://localhost:5173`
+
+4. You should see the admin dashboard login page
+
+### Troubleshooting Local Setup
+
+**Port 5173 Already in Use:**
+```powershell
+# Find process using port
+netstat -ano | findstr :5173
+
+# Kill the process (replace PID with actual number)
+taskkill /PID <PID> /F
+
+# Or use different port
+npm run dev -- --port 5174
+```
+
+**npm Install Fails:**
+```powershell
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and lock file
+Remove-Item -Recurse -Force node_modules
+Remove-Item package-lock.json
+
+# Reinstall
+npm install
+```
+
+**Node Version Mismatch:**
+```powershell
+# Check current version
+node --version
+
+# If wrong version, reinstall Node.js from nodejs.org
+# Make sure to add to PATH during installation
+```
+
+**CORS Errors in Browser:**
+- Ensure backend services are running on correct ports
+- Check `.env.local` URLs match your backend setup
+- Backend must be running for API calls to work
+
+---
+
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18.x LTS
-- npm 9.x or higher
-- Git access to repository
+- Node.js 18.x LTS (installed and verified)
+- npm 9.x or higher (comes with Node.js)
+- Git (installed and configured)
+- GitHub access to repository
 - Backend services running locally (optional for UI-only work)
 
-### Clone & Setup
+### Quick Start
 
-```bash
-# Clone the repository (you'll have GitHub access)
+```powershell
+# Clone the repository
 git clone https://github.com/brookgit/bswadminfront.git
 cd bswadminfront
 
 # Install dependencies
 npm install
+
+# Create .env.local with backend URLs
+# (See Step 5 above for environment variables)
 
 # Start development server
 npm run dev
@@ -33,6 +216,387 @@ npm run lint         # Check code quality
 npm run format       # Auto-format code
 npm run type-check   # Verify TypeScript types
 ```
+
+---
+
+## Local Development & Running
+
+### Development Server
+
+The development server runs with hot module replacement (HMR) - changes auto-reload in browser without restarting.
+
+```powershell
+npm run dev
+```
+
+**What happens:**
+- Vite starts on `http://localhost:5173`
+- Browser auto-opens (or manually navigate)
+- Edit any file and see changes instantly
+- Console shows build errors in real-time
+
+**Expected behavior:**
+- Fast startup (< 5 seconds)
+- Instant file changes (< 1 second)
+- No manual refresh needed
+- TypeScript errors shown in browser
+
+**Stop development server:**
+```powershell
+# Press Ctrl+C in terminal
+```
+
+### Production Build
+
+Build optimized production version locally:
+
+```powershell
+npm run build
+```
+
+**What happens:**
+- Vite bundles and minifies code
+- Creates `dist/` folder (~2-3MB)
+- Optimizes images and assets
+- Takes 30-60 seconds
+
+**Output:**
+```
+dist/
+├── index.html
+├── assets/
+│   ├── index-abc123.js
+│   ├── index-def456.css
+│   └── ...
+└── ...
+```
+
+### Preview Production Build
+
+Test production build locally:
+
+```powershell
+npm run preview
+```
+
+**What happens:**
+- Serves production build from `dist/`
+- Runs on `http://localhost:4173`
+- Shows actual performance
+- No hot reload (like production)
+
+**Use cases:**
+- Test before deployment
+- Check performance
+- Verify build output
+- Test with production environment variables
+
+### Local Backend Integration
+
+To test with local backend services:
+
+1. **Start backend services** (in separate terminal):
+   ```powershell
+   cd apps/backend
+   docker-compose up -d
+   # Wait for services to start (2-3 minutes)
+   ```
+
+2. **Verify backend is running:**
+   ```powershell
+   # Check if services are accessible
+   curl http://localhost:1201/health
+   curl http://localhost:1202/health
+   curl http://localhost:1205/health
+   ```
+
+3. **Update `.env.local`** to point to local backend:
+   ```env
+   VITE_API_URL=http://localhost:1201
+   VITE_ACCOUNT_SERVICE=http://localhost:1201
+   VITE_CANDIDATE_SERVICE=http://localhost:1202
+   VITE_PARTY_SERVICE=http://localhost:1205
+   VITE_JOB_SERVICE=http://localhost:1250
+   ```
+
+4. **Start admin dashboard:**
+   ```powershell
+   npm run dev
+   ```
+
+5. **Login with test account:**
+   - Email: admin@example.com
+   - Password: (check backend setup docs)
+
+### Performance Expectations
+
+**Development Mode:**
+- Initial load: 3-5 seconds
+- File change reload: < 1 second
+- Memory usage: 200-400MB
+- CPU: Low (idle most of time)
+
+**Production Build:**
+- Build time: 30-60 seconds
+- Bundle size: 2-3MB (gzipped: 600-800KB)
+- Load time: < 2 seconds
+- Memory usage: 50-100MB
+
+**Typical Development Session:**
+```
+Start dev server:     5 seconds
+First page load:      3 seconds
+Edit component:       < 1 second reload
+Edit style:           < 1 second reload
+Edit API call:        < 1 second reload
+```
+
+### Running Tests
+
+If tests are configured:
+
+```powershell
+npm run test          # Run tests once
+npm run test:watch   # Watch mode (re-run on changes)
+npm run test:coverage # Generate coverage report
+```
+
+---
+
+## Deployment & Production
+
+### Local Production Testing
+
+Before pushing to GitHub, test production build:
+
+```powershell
+# Build production version
+npm run build
+
+# Preview production build
+npm run preview
+
+# Open http://localhost:4173 in browser
+# Test all features
+```
+
+### GitHub Deployment
+
+Push to GitHub to trigger automatic deployment:
+
+```powershell
+# Make changes
+git add .
+git commit -m "feat: add new feature"
+
+# Push to main branch
+git push origin main
+```
+
+**Automatic deployment process:**
+1. GitHub Actions workflow triggers
+2. Builds Docker image
+3. Transfers to jumphost (197.156.110.145)
+4. Deploys container
+5. Reloads NGINX
+6. Available at https://admin.besewonline.com
+
+**Check deployment status:**
+- Go to GitHub repository
+- Click "Actions" tab
+- View workflow run status
+- Check logs if deployment fails
+
+### Production Environment
+
+**Production URL:** https://admin.besewonline.com
+
+**Production Environment Variables:**
+```env
+VITE_API_URL=https://account.besewonline.com
+VITE_ACCOUNT_SERVICE=https://account.besewonline.com
+VITE_CANDIDATE_SERVICE=https://candidate.besewonline.com
+VITE_PARTY_SERVICE=https://party.besewonline.com
+VITE_JOB_SERVICE=https://job.besewonline.com
+VITE_NOTIFICATION_SERVICE=https://notification.besewonline.com
+VITE_COMMISSION_SERVICE=https://commission.besewonline.com
+VITE_PSYCHOMETRIC_SERVICE=https://psychometric.besewonline.com
+VITE_SEARCH_SERVICE=https://search.besewonline.com
+VITE_REFERENCE_SERVICE=https://reference.besewonline.com
+VITE_CAREER_INTELLIGENCE_SERVICE=https://career-intelligence.besewonline.com
+```
+
+**Production Deployment Details:**
+- Container: besew-admin-dashboard
+- Port: 3000 (internal) → 80 (NGINX)
+- Network: backend_besew-network
+- SSL: Let's Encrypt wildcard certificate
+- Domain: admin.besewonline.com
+
+---
+
+## Version Information
+
+### Current Versions
+
+```json
+{
+  "node": "18.x LTS",
+  "npm": "9.x or higher",
+  "react": "^18.x",
+  "vite": "^4.x",
+  "typescript": "^5.x",
+  "tailwindcss": "^3.x",
+  "redux-toolkit": "^1.x",
+  "axios": "^1.x"
+}
+```
+
+### Check Installed Versions
+
+```powershell
+# System versions
+node --version
+npm --version
+
+# Project dependencies
+npm list react
+npm list vite
+npm list typescript
+npm list tailwindcss
+
+# Full dependency tree
+npm list
+```
+
+### Update Dependencies
+
+```powershell
+# Check for outdated packages
+npm outdated
+
+# Update all packages
+npm update
+
+# Update specific package
+npm install react@latest
+
+# Update to major version
+npm install react@18.2.0
+```
+
+---
+
+## System Requirements Summary
+
+### Minimum
+- Windows 10 or 11
+- 8GB RAM
+- 5GB free disk space
+- Node.js 18.x LTS
+- npm 9.x+
+- Git 2.40+
+
+### Recommended
+- Windows 11 Pro
+- 16GB+ RAM
+- SSD with 10GB+ free space
+- Visual Studio Code
+- Node.js 18.19.0 LTS
+- npm 10.x+
+- Git 2.45+
+
+### Disk Space Usage
+
+```
+node_modules/        ~500MB
+dist/ (build)        ~2-3MB
+.git/                ~50MB
+Total project        ~600MB
+```
+
+---
+
+## Development Workflow
+
+### Daily Development
+
+```powershell
+# 1. Start development server
+npm run dev
+
+# 2. Make changes to files
+# (Auto-reload in browser)
+
+# 3. Check for errors
+npm run type-check
+npm run lint
+
+# 4. Format code
+npm run format
+
+# 5. Commit changes
+git add .
+git commit -m "feat: add feature"
+
+# 6. Push to GitHub
+git push origin feature-branch
+
+# 7. Create Pull Request on GitHub
+```
+
+### Before Pushing
+
+```powershell
+# 1. Run type check
+npm run type-check
+
+# 2. Run linter
+npm run lint
+
+# 3. Format code
+npm run format
+
+# 4. Build production version
+npm run build
+
+# 5. Preview production build
+npm run preview
+
+# 6. Test in browser
+# (Verify all features work)
+
+# 7. Commit and push
+git add .
+git commit -m "feat: add feature"
+git push origin main
+```
+
+---
+
+## Deployment Expectations
+
+### Local Development
+- **Startup time:** 5 seconds
+- **Page load:** 3-5 seconds
+- **File change reload:** < 1 second
+- **Memory:** 200-400MB
+- **CPU:** Low (idle)
+
+### Production Build
+- **Build time:** 30-60 seconds
+- **Bundle size:** 2-3MB (gzipped: 600-800KB)
+- **Page load:** < 2 seconds
+- **Memory:** 50-100MB
+- **CPU:** Low (idle)
+
+### Deployment to Production
+- **Trigger:** Push to main branch
+- **Build time:** 2-3 minutes
+- **Deploy time:** 1-2 minutes
+- **Total time:** 3-5 minutes
+- **Downtime:** < 30 seconds
+- **Rollback:** Automatic (previous image)
 
 ---
 
