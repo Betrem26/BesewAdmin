@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAllMenuConfigs, updateMenuConfig, deleteMenuConfig, seedDefaultMenus, clearError, clearSuccess } from '../../store/features/menuConfigSlice';
 import { RootState } from '../../store/store';
@@ -25,6 +26,114 @@ const SubscriptionTier = {
   PREMIUM: 'PREMIUM',
   ENTERPRISE: 'ENTERPRISE'
 };
+
+const Container = styled.div`
+  padding: 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
+  font-weight: bold;
+  color: #1a1a1a;
+  margin: 0;
+`;
+
+const Button = styled.button<{ variant?: 'primary' | 'success' | 'danger' | 'secondary' }>`
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  
+  background: ${props => {
+    switch(props.variant) {
+      case 'success': return '#10b981';
+      case 'danger': return '#ef4444';
+      case 'secondary': return '#6b7280';
+      default: return '#3b82f6';
+    }
+  }};
+  color: white;
+  
+  &:hover {
+    opacity: 0.9;
+  }
+`;
+
+const Alert = styled.div<{ type: 'error' | 'success' }>`
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: ${props => props.type === 'error' ? '#fee2e2' : '#dcfce7'};
+  color: ${props => props.type === 'error' ? '#991b1b' : '#166534'};
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+`;
+
+const Th = styled.th`
+  background: #f3f4f6;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+`;
+
+const Td = styled.td`
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+`;
+
+const Tr = styled.tr`
+  &:hover {
+    background: #f9fafb;
+  }
+`;
+
+const LoadingText = styled.div`
+  text-align: center;
+  padding: 32px;
+  color: #6b7280;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+`;
+
+const CheckboxGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
 
 export const MenuManagement: React.FC = () => {
   const dispatch = useDispatch();
@@ -106,176 +215,148 @@ export const MenuManagement: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
-        <button
-          onClick={handleSeedDefaults}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Seed Defaults
-        </button>
-      </div>
+    <Container>
+      <Header>
+        <Title>Menu Management</Title>
+        <Button onClick={handleSeedDefaults}>Seed Defaults</Button>
+      </Header>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
-          {error}
-          <button onClick={() => dispatch(clearError())} className="ml-2 underline">Dismiss</button>
-        </div>
+        <Alert type="error">
+          <span>{error}</span>
+          <button onClick={() => dispatch(clearError())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit' }}>Dismiss</button>
+        </Alert>
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-100 text-green-700 rounded">
-          Operation completed successfully
-          <button onClick={() => dispatch(clearSuccess())} className="ml-2 underline">Dismiss</button>
-        </div>
+        <Alert type="success">
+          <span>Operation completed successfully</span>
+          <button onClick={() => dispatch(clearSuccess())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit' }}>Dismiss</button>
+        </Alert>
       )}
 
       {loading ? (
-        <div className="text-center py-8">Loading...</div>
+        <LoadingText>Loading...</LoadingText>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border p-2 text-left">Menu ID</th>
-                <th className="border p-2 text-left">Label</th>
-                <th className="border p-2 text-left">Path</th>
-                <th className="border p-2 text-left">Active</th>
-                <th className="border p-2 text-left">User Types</th>
-                <th className="border p-2 text-left">Worker Types</th>
-                <th className="border p-2 text-left">Subscription Tiers</th>
-                <th className="border p-2 text-left">Min Trust Score</th>
-                <th className="border p-2 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.menuId} className="border hover:bg-gray-50">
-                  <td className="border p-2">{item.menuId}</td>
-                  <td className="border p-2">{item.label}</td>
-                  <td className="border p-2">{item.path}</td>
-                  <td className="border p-2">
+        <Table>
+          <thead>
+            <Tr>
+              <Th>Menu ID</Th>
+              <Th>Label</Th>
+              <Th>Path</Th>
+              <Th>Active</Th>
+              <Th>User Types</Th>
+              <Th>Worker Types</Th>
+              <Th>Subscription Tiers</Th>
+              <Th>Min Trust Score</Th>
+              <Th>Actions</Th>
+            </Tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <Tr key={item.menuId}>
+                <Td>{item.menuId}</Td>
+                <Td>{item.label}</Td>
+                <Td>{item.path}</Td>
+                <Td>
+                  <input
+                    type="checkbox"
+                    checked={editingId === item.menuId ? editData.isActive : item.isActive}
+                    onChange={(e) => {
+                      if (editingId === item.menuId) {
+                        setEditData({ ...editData, isActive: e.target.checked });
+                      }
+                    }}
+                    disabled={editingId !== item.menuId}
+                  />
+                </Td>
+                <Td>
+                  {editingId === item.menuId ? (
+                    <CheckboxGroup>
+                      {Object.values(UserTypeCategory).map((type) => (
+                        <CheckboxLabel key={type}>
+                          <input
+                            type="checkbox"
+                            checked={(editData.allowedUserTypes || []).includes(type)}
+                            onChange={() => toggleUserType(type)}
+                          />
+                          {type}
+                        </CheckboxLabel>
+                      ))}
+                    </CheckboxGroup>
+                  ) : (
+                    <div>{(item.allowedUserTypes || []).join(', ') || 'All'}</div>
+                  )}
+                </Td>
+                <Td>
+                  {editingId === item.menuId ? (
+                    <CheckboxGroup>
+                      {Object.values(WorkerType).map((type) => (
+                        <CheckboxLabel key={type}>
+                          <input
+                            type="checkbox"
+                            checked={(editData.allowedWorkerTypes || []).includes(type)}
+                            onChange={() => toggleWorkerType(type)}
+                          />
+                          {type}
+                        </CheckboxLabel>
+                      ))}
+                    </CheckboxGroup>
+                  ) : (
+                    <div>{(item.allowedWorkerTypes || []).join(', ') || 'All'}</div>
+                  )}
+                </Td>
+                <Td>
+                  {editingId === item.menuId ? (
+                    <CheckboxGroup>
+                      {Object.values(SubscriptionTier).map((tier) => (
+                        <CheckboxLabel key={tier}>
+                          <input
+                            type="checkbox"
+                            checked={(editData.allowedSubscriptionTiers || []).includes(tier)}
+                            onChange={() => toggleSubscriptionTier(tier)}
+                          />
+                          {tier}
+                        </CheckboxLabel>
+                      ))}
+                    </CheckboxGroup>
+                  ) : (
+                    <div>{(item.allowedSubscriptionTiers || []).join(', ')}</div>
+                  )}
+                </Td>
+                <Td>
+                  {editingId === item.menuId ? (
                     <input
-                      type="checkbox"
-                      checked={editingId === item.menuId ? editData.isActive : item.isActive}
-                      onChange={(e) => {
-                        if (editingId === item.menuId) {
-                          setEditData({ ...editData, isActive: e.target.checked });
-                        }
-                      }}
-                      disabled={editingId !== item.menuId}
+                      type="number"
+                      value={editData.minTrustScore || 0}
+                      onChange={(e) => setEditData({ ...editData, minTrustScore: parseInt(e.target.value) })}
+                      style={{ width: '64px', padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                     />
-                  </td>
-                  <td className="border p-2 text-sm">
+                  ) : (
+                    item.minTrustScore
+                  )}
+                </Td>
+                <Td>
+                  <ActionButtons>
                     {editingId === item.menuId ? (
-                      <div className="space-y-1">
-                        {Object.values(UserTypeCategory).map((type) => (
-                          <label key={type} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={(editData.allowedUserTypes || []).includes(type)}
-                              onChange={() => toggleUserType(type)}
-                              className="mr-2"
-                            />
-                            {type}
-                          </label>
-                        ))}
-                      </div>
+                      <>
+                        <Button variant="success" onClick={handleSave}>Save</Button>
+                        <Button variant="secondary" onClick={() => setEditingId(null)}>Cancel</Button>
+                      </>
                     ) : (
-                      <div>{(item.allowedUserTypes || []).join(', ') || 'All'}</div>
+                      <>
+                        <Button onClick={() => handleEdit(item)}>Edit</Button>
+                        <Button variant="danger" onClick={() => handleDelete(item.menuId)}>Delete</Button>
+                      </>
                     )}
-                  </td>
-                  <td className="border p-2 text-sm">
-                    {editingId === item.menuId ? (
-                      <div className="space-y-1">
-                        {Object.values(WorkerType).map((type) => (
-                          <label key={type} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={(editData.allowedWorkerTypes || []).includes(type)}
-                              onChange={() => toggleWorkerType(type)}
-                              className="mr-2"
-                            />
-                            {type}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div>{(item.allowedWorkerTypes || []).join(', ') || 'All'}</div>
-                    )}
-                  </td>
-                  <td className="border p-2 text-sm">
-                    {editingId === item.menuId ? (
-                      <div className="space-y-1">
-                        {Object.values(SubscriptionTier).map((tier) => (
-                          <label key={tier} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={(editData.allowedSubscriptionTiers || []).includes(tier)}
-                              onChange={() => toggleSubscriptionTier(tier)}
-                              className="mr-2"
-                            />
-                            {tier}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div>{(item.allowedSubscriptionTiers || []).join(', ')}</div>
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {editingId === item.menuId ? (
-                      <input
-                        type="number"
-                        value={editData.minTrustScore || 0}
-                        onChange={(e) => setEditData({ ...editData, minTrustScore: parseInt(e.target.value) })}
-                        className="w-16 px-2 py-1 border rounded"
-                      />
-                    ) : (
-                      item.minTrustScore
-                    )}
-                  </td>
-                  <td className="border p-2">
-                    {editingId === item.menuId ? (
-                      <div className="space-x-2">
-                        <button
-                          onClick={handleSave}
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-x-2">
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.menuId)}
-                          className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </ActionButtons>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
       )}
-    </div>
+    </Container>
   );
 };
 

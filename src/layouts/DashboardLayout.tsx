@@ -216,16 +216,31 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     ],
   },
   {
-    section: 'Management',
+    section: 'User Management',
     items: [
-      { path: '/dashboard/users', label: 'User Management', icon: <FiUsers />, permission: 'MANAGE_USERS' },
-      { path: '/dashboard/roles', label: 'Role Management', icon: <FiShield />, permission: 'MANAGE_ROLES' },
-      { path: '/dashboard/jobs', label: 'Job Monitoring', icon: <FiBriefcase />, permission: 'VIEW_JOB_STATISTICS' },
-      { path: '/dashboard/startups', label: 'Company Management', icon: <FiActivity /> },
-      { path: '/dashboard/candidates', label: 'Candidate Management', icon: <FiTarget />, permission: 'VIEW_CANDIDATE_STATISTICS' },
-      { path: '/dashboard/commissions', label: 'Commission Tracking', icon: <FiTrendingUp />, permission: 'VIEW_FINANCIAL_STATISTICS' },
-      { path: '/dashboard/support', label: 'Customer Support', icon: <FiHeadphones /> },
-      { path: '/dashboard/reports', label: 'Account Reports', icon: <FiAlertCircle />, permission: 'VIEW_ACCOUNT_STATISTICS' },
+      { path: '/dashboard/users', label: 'Users', icon: <FiUsers />, permission: 'MANAGE_USERS' },
+      { path: '/dashboard/roles', label: 'Roles', icon: <FiShield />, permission: 'MANAGE_ROLES' },
+    ],
+  },
+  {
+    section: 'Business',
+    items: [
+      { path: '/dashboard/jobs', label: 'Jobs', icon: <FiBriefcase />, permission: 'VIEW_JOB_STATISTICS' },
+      { path: '/dashboard/candidates', label: 'Candidates', icon: <FiTarget />, permission: 'VIEW_CANDIDATE_STATISTICS' },
+      { path: '/dashboard/startups', label: 'Companies', icon: <FiActivity /> },
+    ],
+  },
+  {
+    section: 'Financial',
+    items: [
+      { path: '/dashboard/commissions', label: 'Commissions', icon: <FiTrendingUp />, permission: 'VIEW_FINANCIAL_STATISTICS' },
+    ],
+  },
+  {
+    section: 'Support & Reports',
+    items: [
+      { path: '/dashboard/support', label: 'Support', icon: <FiHeadphones /> },
+      { path: '/dashboard/reports', label: 'Reports', icon: <FiAlertCircle />, permission: 'VIEW_ACCOUNT_STATISTICS' },
     ],
   },
   {
@@ -250,7 +265,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
   {
     section: 'System',
     items: [
-      { path: '/dashboard/settings', label: 'Menu Management', icon: <FiSettings /> },
+      { path: '/dashboard/settings', label: 'Settings', icon: <FiSettings /> },
     ],
   },
 ];
