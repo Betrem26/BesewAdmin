@@ -11,7 +11,7 @@ env:
   JUMPHOST_USER: "startupadmin"
   JUMPHOST_PASSWORD: "Admin@2025"
   DEPLOYMENT_PATH: "/mnt/data/besew/frontend/admin"
-  SERVICE_NAME: "besew-admin-dashboard"
+  SERVICE_NAME: "bswadmin"
   CONTAINER_PORT: "3000"
   DOMAIN: "admin.besewonline.com"
 
@@ -104,7 +104,7 @@ jobs:
           echo 'Admin@2025' | sudo -S docker run -d \
             --name ${{ env.SERVICE_NAME }} \
             --network backend_besew-network \
-            -p ${{ env.CONTAINER_PORT }}:80 \
+            -p 3001:3000 \
             --restart unless-stopped \
             ${{ env.SERVICE_NAME }}:latest
           
