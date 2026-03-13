@@ -26,7 +26,7 @@ jobs:
     - name: Create archive
       run: |
         echo "Creating archive of admin dashboard source code..."
-        tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='*.tar.gz' -czf ../admin-dashboard.tar.gz .
+        tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf ../admin-dashboard.tar.gz .
         mv ../admin-dashboard.tar.gz .
         ls -lh admin-dashboard.tar.gz
 
@@ -85,7 +85,7 @@ jobs:
           
           # Docker multi-stage build handles npm install and build internally
           echo 'Starting Docker build (this may take several minutes)...'
-          echo 'Admin@2025' | sudo -S docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .
+          echo 'Admin@2025' | sudo -S docker build --no-cache -t ${{ env.SERVICE_NAME }}:latest .
           docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
           
           echo 'Docker image built successfully'
@@ -104,7 +104,7 @@ jobs:
           echo 'Admin@2025' | sudo -S docker run -d \
             --name ${{ env.SERVICE_NAME }} \
             --network backend_besew-network \
-            -p 3001:3000 \
+            -p 3000:80 \
             --restart unless-stopped \
             ${{ env.SERVICE_NAME }}:latest
           
@@ -128,7 +128,7 @@ jobs:
           
           # Test local access
           echo 'Testing local access...'
-          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }})
+          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:80)
           echo \"HTTP Status: \$HTTP_STATUS\"
           
           if [ \"\$HTTP_STATUS\" != \"200\" ]; then
