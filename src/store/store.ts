@@ -10,6 +10,7 @@ import accountReportsSlice from "./features/accountReportsSlice";
 import jobCategoriesSlice from "./features/jobCategoriesSlice";
 import psychometricSlice from "./features/psychometricSlice";
 import statisticsSlice from "./features/statisticsSlice";
+import menuConfigSlice from "./features/menuConfigSlice";
 
 // Define persist config
 const persistConfig = {
@@ -30,6 +31,7 @@ const rootReducer = combineReducers({
   jobCategories: jobCategoriesSlice,
   psychometric: psychometricSlice,
   statistics: statisticsSlice,
+  menuConfig: menuConfigSlice,
 });
 
 // Enhance root reducer with persistence
