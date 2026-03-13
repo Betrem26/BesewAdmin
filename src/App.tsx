@@ -22,7 +22,7 @@ import CommissionTracking from './pages/dashboard/CommissionTracking';
 import NotificationCenter from './pages/dashboard/NotificationCenter';
 import AuditLogs from './pages/dashboard/AuditLogs';
 import RoleManagement from './pages/RoleManagement';
-import MenuManagement from './pages/settings/MenuManagement';
+import Settings from './pages/settings/Settings';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -73,7 +73,7 @@ function App() {
             <Route path="notifications" element={<NotificationCenter />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="roles" element={<RoleManagement />} />
-            <Route path="settings" element={<MenuManagement />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           {/* Catch all - redirect to home */}
