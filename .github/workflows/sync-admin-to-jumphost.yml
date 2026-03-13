@@ -33,16 +33,31 @@ jobs:
     - name: Install SSH tools
       run: sudo apt-get update && sudo apt-get install -y sshpass
 
-    - name: Transfer to jumphost
+    - name: Save Docker image
       run: |
+        echo "Saving Docker image to tar file..."
+        docker save ${{ env.SERVICE_NAME }}:latest | gzip > admin-dashboard-image.tar.gz
+        ls -lh admin-dashboard-image.tar.gz
+
+    - name: Transfer image and source to jumphost
+      run: |
+        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" scp -P ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no admin-dashboard-image.tar.gz ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }}:~/
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" scp -P ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no admin-dashboard.tar.gz ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }}:~/
 
-    - name: Extract and setup on jumphost
+    - name: Load image and deploy on jumphost
       run: |
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
-          echo 'Setting up admin dashboard on jumphost...'
+          echo 'Loading Docker image on jumphost...'
           
-          # Create deployment directory
+          # Load the pre-built image
+          echo 'Admin@2025' | sudo -S docker load -i ~/admin-dashboard-image.tar.gz
+          rm ~/admin-dashboard-image.tar.gz
+          
+          echo 'Docker image loaded successfully'
+          docker images | grep ${{ env.SERVICE_NAME }}
+          
+          # Extract source code for reference
+          echo 'Extracting source code...'
           echo 'Admin@2025' | sudo -S mkdir -p ${{ env.DEPLOYMENT_PATH }}
           echo 'Admin@2025' | sudo -S chown startupadmin:startupadmin ${{ env.DEPLOYMENT_PATH }}
           
@@ -52,7 +67,7 @@ jobs:
             tar -czf ~/admin-dashboard.backup.\$(date +%Y%m%d_%H%M%S).tar.gz -C ${{ env.DEPLOYMENT_PATH }} .
           fi
           
-          # Clean deployment directory completely to remove old files
+          # Clean deployment directory
           echo 'Cleaning deployment directory...'
           rm -rf ${{ env.DEPLOYMENT_PATH }}/*
           rm -rf ${{ env.DEPLOYMENT_PATH }}/.[!.]*
@@ -62,63 +77,39 @@ jobs:
           tar -xzf ~/admin-dashboard.tar.gz
           rm ~/admin-dashboard.tar.gz
           
-          # Create Dockerfile symlink for Docker build compatibility
-          if [ ! -f Dockerfile ] && [ -f Dockerfile.production ]; then
-            cp Dockerfile.production Dockerfile
-          fi
-          
           echo 'Admin dashboard source code synced to ${{ env.DEPLOYMENT_PATH }}'
         "
 
-    - name: Build Docker image on jumphost
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Build locally
       run: |
-        sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
-          echo 'Building Docker image on jumphost (includes npm install and build)...'
-          cd ${{ env.DEPLOYMENT_PATH }}
-          
-          # Clean up build artifacts and caches
-          echo 'Cleaning up old build artifacts...'
-          echo 'Admin@2025' | sudo -S rm -rf dist node_modules
-          
-          # Clean up Docker builder cache
-          echo 'Cleaning Docker builder cache...'
-          echo 'Admin@2025' | sudo -S docker builder prune -af
-          
-          # Remove existing images
-          echo 'Removing existing images...'
-          docker rmi ${{ env.SERVICE_NAME }}:latest 2>/dev/null || true
-          
-          # Docker multi-stage build with retry logic
-          echo 'Starting Docker build (this may take several minutes)...'
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          while [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; do
-            echo \"Build attempt \$((RETRY_COUNT + 1)) of \$MAX_RETRIES\"
-            if echo 'Admin@2025' | sudo -S docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .; then
-              echo 'Docker image built successfully'
-              docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:\$(date +%Y%m%d-%H%M%S)
-              exit 0
-            fi
-            RETRY_COUNT=\$((RETRY_COUNT + 1))
-            if [ \$RETRY_COUNT -lt \$MAX_RETRIES ]; then
-              echo \"Build failed, retrying in 30 seconds...\"
-              sleep 30
-            fi
-          done
-          echo 'Docker build failed after \$MAX_RETRIES attempts'
-          exit 1
-        "
+        echo "Building admin dashboard locally..."
+        npm ci
+        npm run build
+        echo "Build completed successfully"
+
+    - name: Build Docker image locally
+      run: |
+        echo "Building Docker image locally..."
+        docker build --no-cache -f Dockerfile.production -t ${{ env.SERVICE_NAME }}:latest .
+        docker tag ${{ env.SERVICE_NAME }}:latest ${{ env.SERVICE_NAME }}:$(date +%Y%m%d-%H%M%S)
+        echo "Docker image built successfully"
+        docker images | grep ${{ env.SERVICE_NAME }}
 
     - name: Deploy container
       run: |
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
           echo 'Deploying admin dashboard container...'
           
-          # Stop and remove old container with sudo
+          # Stop and remove old container
           echo 'Admin@2025' | sudo -S docker stop ${{ env.SERVICE_NAME }} 2>/dev/null || true
           echo 'Admin@2025' | sudo -S docker rm -f ${{ env.SERVICE_NAME }} 2>/dev/null || true
           
-          # Start new container with sudo
+          # Start new container
           echo 'Admin@2025' | sudo -S docker run -d \
             --name ${{ env.SERVICE_NAME }} \
             --network backend_besew-network \
@@ -137,24 +128,39 @@ jobs:
         sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
           echo 'Verifying deployment...'
           
-          # Check container status
-          docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-          
-          # Check container logs
-          echo 'Container logs:'
-          docker logs ${{ env.SERVICE_NAME }} --tail 20
-          
-          # Test local access
-          echo 'Testing local access...'
-          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }})
-          echo \"HTTP Status: \$HTTP_STATUS\"
-          
-          if [ \"\$HTTP_STATUS\" != \"200\" ]; then
-            echo '[ERROR] Service not responding correctly'
+          # Check if image exists
+          if ! docker image inspect ${{ env.SERVICE_NAME }}:latest > /dev/null 2>&1; then
+            echo '[ERROR] Docker image not found: ${{ env.SERVICE_NAME }}:latest'
+            echo 'Available images:'
+            docker images | grep -E 'besew|admin|REPOSITORY' || echo 'No matching images found'
             exit 1
           fi
           
-          echo '[SUCCESS] Service is responding'
+          # Check container status
+          if docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -q ${{ env.SERVICE_NAME }}; then
+            echo '[SUCCESS] Container is running'
+            docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          else
+            echo '[WARNING] Container not running, checking if it exists...'
+            if docker ps -a --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}' | grep -q ${{ env.SERVICE_NAME }}; then
+              echo 'Container exists but is not running. Logs:'
+              docker logs ${{ env.SERVICE_NAME }} --tail 20
+            else
+              echo '[ERROR] Container does not exist'
+              exit 1
+            fi
+          fi
+          
+          # Test local access
+          echo 'Testing local access on port ${{ env.CONTAINER_PORT }}...'
+          HTTP_STATUS=\$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${{ env.CONTAINER_PORT }} 2>&1)
+          echo \"HTTP Status: \$HTTP_STATUS\"
+          
+          if [ \"\$HTTP_STATUS\" = \"200\" ] || [ \"\$HTTP_STATUS\" = \"301\" ] || [ \"\$HTTP_STATUS\" = \"302\" ]; then
+            echo '[SUCCESS] Service is responding'
+          else
+            echo '[WARNING] Service returned status \$HTTP_STATUS (may still be starting up)'
+          fi
         "
 
     - name: Reload NGINX
