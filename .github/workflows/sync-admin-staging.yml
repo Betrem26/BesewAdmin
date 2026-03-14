@@ -28,9 +28,8 @@ jobs:
 
       - name: Create archive
         run: |
-          cd apps/admin/bswadminfront
-          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf ../../admin-dashboard-staging.tar.gz .
-          ls -lh ../../admin-dashboard-staging.tar.gz
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz -C apps/admin/bswadminfront .
+          ls -lh admin-dashboard-staging.tar.gz
 
       - name: Install SSH tools
         run: sudo apt-get update && sudo apt-get install -y sshpass
