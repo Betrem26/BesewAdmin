@@ -19,19 +19,7 @@ env:
   DOMAIN: "admin.besewonline.com"
 
 jobs:
-  approve-deployment:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Request approval for production deployment
-        uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ secrets.GITHUB_TOKEN }}
-          approvers: brookgit
-          issue-title: 'Approve production deployment for Admin Dashboard'
-          issue-body: 'Please review and approve the production deployment for the admin dashboard'
-
   build-and-deploy:
-    needs: approve-deployment
     runs-on: ubuntu-latest
     environment: production
     
