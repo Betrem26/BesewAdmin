@@ -28,7 +28,7 @@ jobs:
 
       - name: Create archive
         run: |
-          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz -C apps/admin/bswadminfront .
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz -C apps/admin bswadminfront
           ls -lh admin-dashboard-staging.tar.gz
 
       - name: Install SSH tools
