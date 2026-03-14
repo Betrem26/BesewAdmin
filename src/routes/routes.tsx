@@ -2,7 +2,7 @@ import { Navigate, createBrowserRouter } from "react-router-dom";
 import Dashboard from "../pages/Dashboard";
 import Jobs from "../pages/Jobs";
 import VacanciesDetail from "../pages/VacanciesDetail";
-//import Accounts from "../pages/Accounts";
+import Accounts from "../pages/accounts/Accounts";
 import Vacancies from "../pages/Vacancies";
 import Users from "../pages/Users";
 import Reports from "../pages/Reports";
@@ -34,12 +34,18 @@ interface Route {
   element: RouteElement;
 }
 
-const PrivateRoute = ({ children }) => {
-  const { accessToken } = useSelector((store: RootState) => store.user);
-  const isAuthenticated = accessToken !== null;
-  console.log("Auth state:", { accessToken, isAuthenticated });
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
+const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+  const { accessToken } = useSelector((state: RootState) => state.user);
+  const persistorState = useSelector((state: RootState) => (state as any)._persist);
+
+  // Wait until redux-persist rehydrates
+  if (!persistorState?.rehydrated) return <p>Loading...</p>;
+
+  const isAuthenticated = !!accessToken;
+  console.log("PrivateRoute:", { isAuthenticated, accessToken });
+
+  return isAuthenticated ? children : <Navigate to="/signin" replace />;
+};;
 
 export const router = createBrowserRouter([
   {
@@ -61,6 +67,8 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
   },
+
+ ,
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
   {
@@ -135,7 +143,14 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
   },
-  //{ path: "/accounts", element: <PrivateRoute><Accounts /></PrivateRoute> },
+  {
+    path: "/accounts",
+    element: (
+      <PrivateRoute>
+        <Accounts />
+      </PrivateRoute>
+    ),
+  },
   {
     path: "/Users",
     element: (
