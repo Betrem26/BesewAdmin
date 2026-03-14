@@ -1,0 +1,85 @@
+name: Deploy Admin Dashboard to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/admin/bswadminfront/**'
+      - '.github/workflows/sync-admin-production.yml'
+
+jobs:
+  approve-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request approval for production deployment
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: brookgit
+          issue-title: 'Approve production deployment for Admin Dashboard'
+          issue-body: 'Please review and approve the production deployment for the admin dashboard'
+
+  build-and-deploy:
+    needs: approve-deployment
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: |
+          cd apps/admin/bswadminfront
+          docker build -t besew-admin-dashboard:latest .
+
+      - name: Save Docker image
+        run: |
+          docker save besew-admin-dashboard:latest -o /tmp/admin-prod.tar
+
+      - name: Transfer image to jumphost
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.JUMPHOST_IP }}
+          port: ${{ secrets.JUMPHOST_PORT }}
+          username: ${{ secrets.JUMPHOST_USER }}
+          password: ${{ secrets.JUMPHOST_PASSWORD }}
+          source: /tmp/admin-prod.tar
+          target: /tmp/
+
+      - name: Deploy to production
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.JUMPHOST_IP }}
+          port: ${{ secrets.JUMPHOST_PORT }}
+          username: ${{ secrets.JUMPHOST_USER }}
+          password: ${{ secrets.JUMPHOST_PASSWORD }}
+          script: |
+            # Load Docker image
+            docker load -i /tmp/admin-prod.tar
+            
+            # Stop and remove old container if exists
+            docker stop besew-admin-dashboard 2>/dev/null || true
+            docker rm besew-admin-dashboard 2>/dev/null || true
+            
+            # Run new container
+            docker run -d \
+              --name besew-admin-dashboard \
+              -p 3000:80 \
+              --restart unless-stopped \
+              besew-admin-dashboard:latest
+            
+            # Reload NGINX
+            sudo systemctl reload nginx
+            
+            # Cleanup
+            rm /tmp/admin-prod.tar
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f https://admin.besewonline.com/ || exit 1
