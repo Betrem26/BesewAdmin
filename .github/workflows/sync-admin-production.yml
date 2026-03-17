@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'apps/admin/bswadminfront/**'
+      - '**'
       - '.github/workflows/sync-admin-production.yml'
 
 env:
@@ -29,9 +29,8 @@ jobs:
 
       - name: Create archive
         run: |
-          cd apps/admin/bswadminfront
-          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf ../../admin-dashboard-prod.tar.gz .
-          ls -lh ../../admin-dashboard-prod.tar.gz
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-prod.tar.gz .
+          ls -lh admin-dashboard-prod.tar.gz
 
       - name: Install SSH tools
         run: sudo apt-get update && sudo apt-get install -y sshpass
