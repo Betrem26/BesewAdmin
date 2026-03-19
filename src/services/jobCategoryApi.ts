@@ -75,6 +75,30 @@ export const jobCategoryApi = {
   },
 
   /**
+   * Get category by language
+   */
+  getCategoryByLang: async (langOpt: string): Promise<JobCategory[]> => {
+    try {
+      const response = await jobApi.get<JobCategory[]>(`/job-category/by-lang/${langOpt}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Get category by company type
+   */
+  getCategoryByType: async (companyType: string): Promise<JobCategory[]> => {
+    try {
+      const response = await jobApi.get<JobCategory[]>(`/job-category/by-type/${companyType}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
    * Create new job category (Admin only)
    */
   createCategory: async (data: CreateJobCategoryDto): Promise<JobCategory> => {
@@ -87,6 +111,29 @@ export const jobCategoryApi = {
       if (data.icon) formData.append('icon', data.icon);
 
       const response = await jobApi.post<JobCategory>('/job-category', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  /**
+   * Create new admin job category (Admin only)
+   */
+  createAdminCategory: async (data: CreateJobCategoryDto): Promise<JobCategory> => {
+    try {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      if (data.description) formData.append('description', data.description);
+      formData.append('companyType', data.companyType);
+      formData.append('langOpt', data.langOpt);
+      if (data.icon) formData.append('icon', data.icon);
+
+      const response = await jobApi.post<JobCategory>('/job-category/adminCategory', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

@@ -23,6 +23,8 @@ import NotificationCenter from './pages/dashboard/NotificationCenter';
 import AuditLogs from './pages/dashboard/AuditLogs';
 import RoleManagement from './pages/RoleManagement';
 import Settings from './pages/settings/Settings';
+import AccountsTest from './pages/accounts/AcccountsTest';
+import JobTest from './pages/dashboard/JobTest';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -74,6 +76,8 @@ function App() {
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="roles" element={<RoleManagement />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="accounts-test" element={<AccountsTest />} />
+            <Route path="job-test" element={<JobTest />} />
           </Route>
 
           {/* Catch all - redirect to home */}

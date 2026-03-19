@@ -26,10 +26,26 @@ export const fetchAdminCategories = createAsyncThunk(
   }
 );
 
+export const fetchCategoriesByLang = createAsyncThunk(
+  'jobCategories/fetchCategoriesByLang',
+  async (langOpt: string) => {
+    const response = await jobCategoryApi.getCategoryByLang(langOpt);
+    return response;
+  }
+);
+
+export const fetchCategoriesByType = createAsyncThunk(
+  'jobCategories/fetchCategoriesByType',
+  async (companyType: string) => {
+    const response = await jobCategoryApi.getCategoryByType(companyType);
+    return response;
+  }
+);
+
 export const createCategory = createAsyncThunk(
   'jobCategories/createCategory',
   async (data: { name: string; description?: string; companyType: string; langOpt: string; icon?: File }) => {
-    const response = await jobCategoryApi.createCategory(data);
+    const response = await jobCategoryApi.createAdminCategory(data);
     return response;
   }
 );
@@ -78,6 +94,32 @@ const jobCategoriesSlice = createSlice({
       .addCase(fetchAdminCategories.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch categories';
+      })
+      // Fetch by Language
+      .addCase(fetchCategoriesByLang.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCategoriesByLang.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminCategories = action.payload;
+      })
+      .addCase(fetchCategoriesByLang.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch categories by lang';
+      })
+      // Fetch by Type
+      .addCase(fetchCategoriesByType.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCategoriesByType.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminCategories = action.payload;
+      })
+      .addCase(fetchCategoriesByType.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch categories by type';
       })
       // Create category
       .addCase(createCategory.pending, (state) => {

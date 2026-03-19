@@ -6,11 +6,11 @@ import { setToken } from '../store/features/userSlice';
 // API Base URLs
 export const API_ENDPOINTS = {
   account: 'https://account.besewonline.com',
-  job: 'https://jobs.besewonline.com',
+  job: 'https://job.besewonline.com',
   psychometric: 'https://psychometric.besewonline.com',
   candidate: 'https://candidate.besewonline.com',
   party: 'https://party.besewonline.com',
-  commission: 'https://commission.besewonline.com',
+  commission: 'https://comission.besewonline.com',
   employee: 'https://employee.besewonline.com',
   notification: 'https://notify.besewonline.com',
 };

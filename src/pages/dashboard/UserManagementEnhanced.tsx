@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { FiUsers, FiSearch, FiDownload, FiEye, FiLock, FiUnlock, FiRefreshCw } from 'react-icons/fi';
-import { accountApi, handleApiError } from '../../services/api';
+import { handleApiError } from '../../services/api';
+import { accountService } from '../../api/accounts';
 import monitoringApi from '../../services/monitoringApi';
 
 const Container = styled.div`
@@ -206,7 +207,8 @@ const StatusBadge = styled.span<{ status: string }>`
       case 'verified': return '#d1ecf1';
       case 'suspended': return '#fff3cd';
       case 'banned': return '#f8d7da';
-      default: return '#e2e3e5';
+      case 'pending_otp': return '#e2e3e5';
+      default: return '#f8f9fa';
     }
   }};
   color: ${props => {
@@ -215,7 +217,8 @@ const StatusBadge = styled.span<{ status: string }>`
       case 'verified': return '#0c5460';
       case 'suspended': return '#856404';
       case 'banned': return '#721c24';
-      default: return '#383d41';
+      case 'pending_otp': return '#6c757d';
+      default: return '#6c757d';
     }
   }};
 `;
@@ -369,12 +372,17 @@ const ErrorMessage = styled.div`
 
 interface User {
   _id: string;
+  act_id?: string;
   phonenumber: string;
+  phone?: string;
   role: string;
   status: string;
   isOtpVerified: boolean;
+  verified?: boolean;
   createdAt: string;
+  created_at?: string;
   lastLoginAt?: string;
+  last_login?: string;
 }
 
 interface UserStats {
@@ -391,13 +399,13 @@ const UserManagementEnhanced: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -424,10 +432,23 @@ const UserManagementEnhanced: React.FC = () => {
       if (verificationFilter !== 'all') params.isOtpVerified = verificationFilter === 'verified';
       if (searchQuery) params.search = searchQuery;
 
-      const response = await accountApi.get('/accounts', { params });
-      
-      setUsers(response.data.users || response.data || []);
-      setTotalPages(response.data.totalPages || 1);
+      const response: any = await accountService.getAccounts(params);
+      console.log('User Management API Response:', response);
+
+      // Robust extraction: find the array anywhere in the response
+      let userList = [];
+      if (Array.isArray(response)) {
+        userList = response;
+      } else if (response && Array.isArray(response.data)) {
+        userList = response.data;
+      } else if (response && Array.isArray(response.users)) {
+        userList = response.users;
+      } else if (response && response.data && Array.isArray(response.data.users)) {
+        userList = response.data.users;
+      }
+
+      setUsers(userList);
+      setTotalPages(response.totalPages || response.data?.totalPages || 1);
     } catch (err: any) {
       setError(handleApiError(err));
     } finally {
@@ -456,7 +477,7 @@ const UserManagementEnhanced: React.FC = () => {
 
   const handleUpdateStatus = async (userId: string, newStatus: string) => {
     try {
-      await accountApi.patch(`/accounts/${userId}/status`, { status: newStatus });
+      await accountService.updateAccount(userId, { status: newStatus } as any);
       loadUsers();
       loadStats();
     } catch (err: any) {
@@ -473,7 +494,9 @@ const UserManagementEnhanced: React.FC = () => {
         u.role,
         u.status,
         u.isOtpVerified ? 'Yes' : 'No',
-        new Date(u.createdAt).toLocaleDateString()
+        u.createdAt && !isNaN(Date.parse(u.createdAt)) 
+          ? new Date(u.createdAt).toLocaleDateString() 
+          : 'N/A'
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -590,27 +613,49 @@ const UserManagementEnhanced: React.FC = () => {
             </Tr>
           </Thead>
           <Tbody>
-            {users.map((user) => (
-              <Tr key={user._id}>
-                <Td>{user.phonenumber}</Td>
-                <Td>{user.role}</Td>
-                <Td>
-                  <StatusBadge status={user.status}>{user.status}</StatusBadge>
+            {users.length === 0 ? (
+              <Tr>
+                <Td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
+                  No users found matching your criteria.
                 </Td>
+              </Tr>
+            ) : users.map((user, index) => (
+              <Tr key={user._id || user.act_id || index}>
+                <Td>{user.phonenumber || user.phone || 'N/A'}</Td>
+                <Td>{user.role || 'User'}</Td>
                 <Td>
-                  <StatusBadge status={user.isOtpVerified ? 'verified' : 'unverified'}>
-                    {user.isOtpVerified ? 'Yes' : 'No'}
+                  <StatusBadge status={(user.status || 'inactive').toLowerCase()}>
+                    {user.status || 'Inactive'}
                   </StatusBadge>
                 </Td>
-                <Td>{new Date(user.createdAt).toLocaleDateString()}</Td>
-                <Td>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : 'Never'}</Td>
+                <Td>
+                  <StatusBadge status={(user.isOtpVerified || user.verified) ? 'active' : 'pending_otp'}>
+                    {(user.isOtpVerified || user.verified) ? 'Yes' : 'No'}
+                  </StatusBadge>
+                </Td>
+                <Td>
+                  {(() => {
+                    const dateStr = user.createdAt || user.created_at;
+                    return dateStr && !isNaN(Date.parse(dateStr)) 
+                      ? new Date(dateStr).toLocaleDateString() 
+                      : 'N/A';
+                  })()}
+                </Td>
+                <Td>
+                  {(() => {
+                    const dateStr = user.lastLoginAt || user.last_login;
+                    return dateStr && !isNaN(Date.parse(dateStr)) 
+                      ? new Date(dateStr).toLocaleDateString() 
+                      : 'Never';
+                  })()}
+                </Td>
                 <Td>
                   <ActionButtons>
                     <IconButton onClick={() => handleViewUser(user)} title="View Details">
                       <FiEye />
                     </IconButton>
                     {user.status === 'active' && (
-                      <IconButton 
+                      <IconButton
                         onClick={() => handleUpdateStatus(user._id, 'suspended')}
                         title="Suspend User"
                       >
@@ -618,7 +663,7 @@ const UserManagementEnhanced: React.FC = () => {
                       </IconButton>
                     )}
                     {user.status === 'suspended' && (
-                      <IconButton 
+                      <IconButton
                         onClick={() => handleUpdateStatus(user._id, 'active')}
                         title="Activate User"
                       >
@@ -637,7 +682,7 @@ const UserManagementEnhanced: React.FC = () => {
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, stats.total)} of {stats.total} users
           </PageInfo>
           <PageButtons>
-            <PageButton 
+            <PageButton
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
             >
@@ -655,7 +700,7 @@ const UserManagementEnhanced: React.FC = () => {
                 </PageButton>
               );
             })}
-            <PageButton 
+            <PageButton
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
             >
@@ -706,8 +751,8 @@ const UserManagementEnhanced: React.FC = () => {
               <DetailRow>
                 <DetailLabel>Last Login:</DetailLabel>
                 <DetailValue>
-                  {selectedUser.lastLoginAt 
-                    ? new Date(selectedUser.lastLoginAt).toLocaleString() 
+                  {selectedUser.lastLoginAt
+                    ? new Date(selectedUser.lastLoginAt).toLocaleString()
                     : 'Never logged in'}
                 </DetailValue>
               </DetailRow>

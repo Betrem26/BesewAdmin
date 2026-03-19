@@ -405,46 +405,9 @@ function Users() {
       console.log("📤 Sending request to create new user...");
       console.log("📋 User data being sent:", newUserData);
 
-      const response = await fetch("https://account.besewonline.com/accounts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          // Add any authentication headers if required
-          // "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(apiPayload),
-      });
-
-      console.log("📡 API Response Status:", response.status);
-
-      let responseData;
-      try {
-        responseData = await response.json();
-      } catch (parseError) {
-        console.error("Failed to parse response:", parseError);
-        throw new Error("Invalid response from server");
-      }
-
+      const response = await accountApi.post("/api/accounts", apiPayload);
+      const responseData = response.data;
       console.log("📡 API Response Data:", responseData);
-
-      if (!response.ok) {
-        // Handle different error scenarios
-        if (response.status === 400) {
-          throw new Error(responseData.message || "Invalid request data");
-        } else if (response.status === 409) {
-          throw new Error("User already exists with this email or username");
-        } else if (response.status === 422) {
-          throw new Error("Validation failed - please check all fields");
-        } else if (response.status >= 500) {
-          throw new Error("Server error - please try again later");
-        } else {
-          throw new Error(
-            responseData.message ||
-            `HTTP ${response.status}: ${response.statusText}`
-          );
-        }
-      }
 
       console.log("✅ User created successfully!");
       console.log("🎉 New user data:", responseData);
@@ -510,17 +473,16 @@ function Users() {
     } catch (error: any) {
       console.error("❌ Error creating user:", error);
 
-      let errorMessage = "Failed to create user";
+      let errorMessage = error.response?.data?.message || "Failed to create user";
+      const status = error.response?.status || error.status;
 
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.status === 400) {
+      if (status === 400) {
         errorMessage = "Invalid user data provided";
-      } else if (error.status === 409) {
+      } else if (status === 409) {
         errorMessage = "User with this email or username already exists";
-      } else if (error.status === 422) {
+      } else if (status === 422) {
         errorMessage = "Please check all required fields are filled correctly";
-      } else if (error.status >= 500) {
+      } else if (status >= 500) {
         errorMessage = "Server error - please try again later";
       }
 
@@ -567,49 +529,21 @@ function Users() {
       } else if (selectedUserData.act_id) {
         // Secondary: Use act_id with accounts endpoint
         deleteId = selectedUserData.act_id;
-        deleteUrl = `https://account.besewonline.com/accounts/${deleteId}`;
+        deleteUrl = `/api/accounts/${deleteId}`;
         console.log("📤 Using act_id for deletion:", deleteId);
       } else {
         // Fallback: Use user _id with accounts endpoint
         deleteId = selectedUserData._id;
-        deleteUrl = `https://account.besewonline.com/accounts/${deleteId}`;
+        deleteUrl = `/api/accounts/${deleteId}`;
         console.log("📤 Using user _id for deletion:", deleteId);
       }
 
       console.log("📤 Sending DELETE request to:", deleteUrl);
 
-      const response = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-      });
+      await accountApi.delete(deleteUrl);
+      console.log("✅ User deletion successful!");
 
-      console.log("📡 API Response Status:", response.status);
-      console.log(
-        "📡 API Response Headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-
-      if (response.ok || response.status === 204) {
-        console.log("✅ User deletion successful!");
-
-        // Try to get response data (might be empty for successful deletion)
-        let responseData = null;
-        try {
-          const text = await response.text();
-          if (text) {
-            responseData = JSON.parse(text);
-            console.log("📡 API Response Data:", responseData);
-          }
-        } catch (parseError) {
-          console.log(
-            "📡 No response body or non-JSON response (this is normal for DELETE)"
-          );
-        }
-
-        // Remove user from local state
+      // Remove user from local state
         setUsers((prevUsers) =>
           prevUsers.filter((user) => user._id !== userId)
         );
@@ -640,21 +574,6 @@ function Users() {
         setSnackbarOpen(true);
 
         console.log("🎉 User deletion process completed successfully!");
-      } else if (response.status === 404) {
-        throw new Error("Account not found with the provided ID");
-      } else {
-        // Try to get error message from response
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.message) {
-            errorMessage = errorData.message;
-          }
-        } catch (parseError) {
-          console.log("Could not parse error response");
-        }
-        throw new Error(errorMessage);
-      }
     } catch (error: any) {
       console.error("❌ Error deleting user:", error);
       console.error("❌ Error details:", {
@@ -678,20 +597,8 @@ function Users() {
       console.log(`🔄 Updating user ${userId} status to: ${newStatus}`);
       setAddUserLoading(true);
 
-      const response = await fetch(`https://account.besewonline.com/accounts/${userId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ status: newStatus.toLowerCase() }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update status: ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
+      const response = await accountApi.put(`/api/accounts/${userId}`, { status: newStatus.toLowerCase() });
+      const responseData = response.data;
       console.log("✅ Status updated successfully:", responseData);
 
       // Update local state

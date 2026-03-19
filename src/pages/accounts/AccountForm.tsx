@@ -1,321 +1,206 @@
-// import { useState, useEffect } from 'react';
-// import {
-//     Box,
-//     Button,
-//     FormControl,
-//     FormLabel,
-//     Input,
-//     Select,
-//     VStack,
-//     useToast,
-//     FormErrorMessage,
-//     Grid,
-//     GridItem,
-// } from '@chakra-ui/react';
-// import { useNavigate, useParams } from 'react-router-dom';
-// import { accountService, partyService, Account, Agency, Company } from '../../services/api';
+import React, { useState } from 'react';
+import { useAccounts } from '../../hooks/useAccounts';
 
-// interface AccountFormProps {
-//     mode: 'create' | 'edit';
-// }
+interface AccountFormProps {
+  onSuccess?: () => void;
+}
 
-// export default function AccountForm({ mode }: AccountFormProps) {
-//     const { id } = useParams<{ id: string }>();
-//     const navigate = useNavigate();
-//     const toast = useToast();
+const AccountForm: React.FC<AccountFormProps> = ({ onSuccess }) => {
+  const { createAccount, loading, error, clearError } = useAccounts();
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    phoneNumber: '',
+    firstName: '',
+    lastName: '',
+    role: 'user' as 'user' | 'admin',
+  });
 
-//     const [formData, setFormData] = useState<Account>({
-//         _id: '',
-//         act_id: '',
-//         uname: '',
-//         email: '',
-//         role: '',
-//         agency: '',
-//         company: '',
-//         location: '',
-//         status: 'active',
-//         created_at: '',
-//         updated_at: '',
-//         password: '', // Only for create mode
-//     });
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
-//     const [errors, setErrors] = useState<Record<string, string>>({});
-//     const [isLoading, setIsLoading] = useState(false);
-//     const [agencies, setAgencies] = useState<Agency[]>([]);
-//     const [companies, setCompanies] = useState<Company[]>([]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'password' || name === 'confirmPassword') {
+      setPasswordError('');
+    }
+  };
 
-//     useEffect(() => {
-//         const fetchData = async () => {
-//             try {
-//                 // Fetch agencies and companies
-//                 const agenciesResponse = await partyService.getAgencies();
-//                 const companiesResponse = await partyService.getCompanies();
-                
-//                 setAgencies(agenciesResponse.data || []);
-//                 setCompanies(companiesResponse.data || []);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (formData.password !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
 
-//                 // If editing, fetch account data
-//                 if (mode === 'edit' && id) {
-//                     const accountResponse = await accountService.getAccountById(id);
-//                     const account = accountResponse.data;
-//                     // Set form data but keep password empty for edit mode
-//                     setFormData({ 
-//                         ...account, 
-//                         password: '' // Always empty for edit mode
-//                     });
-//                 }
-//             } catch (error) {
-//                 console.error('Error fetching data:', error);
-//                 toast({
-//                     title: 'Error',
-//                     description: mode === 'edit' ? 'Failed to fetch account details' : 'Failed to load form data',
-//                     status: 'error',
-//                     duration: 5000,
-//                     isClosable: true,
-//                 });
-//                 if (mode === 'edit') {
-//                     navigate('/accounts');
-//                 }
-//             }
-//         };
+    if (formData.password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return;
+    }
 
-//         fetchData();
-//     }, [mode, id, navigate, toast]);
+    try {
+      await createAccount(formData);
+      setFormData({
+        email: '',
+        password: '',
+        phoneNumber: '',
+        firstName: '',
+        lastName: '',
+        role: 'user',
+      });
+      setConfirmPassword('');
+      onSuccess?.();
+    } catch (err) {
+      // Error handled by hook
+    }
+  };
 
-//     const validateForm = () => {
-//         const newErrors: Record<string, string> = {};
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow">
+      <h2 className="text-xl font-semibold mb-4">Create New Account</h2>
 
-//         if (!formData.uname?.trim()) newErrors.uname = 'Username is required';
-//         if (!formData.email?.trim()) newErrors.email = 'Email is required';
-//         if (!formData.role) newErrors.role = 'Role is required';
-        
-//         // Email validation
-//         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//         if (formData.email && !emailRegex.test(formData.email)) {
-//             newErrors.email = 'Please enter a valid email address';
-//         }
+      {error && (
+        <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={clearError}
+            className="mt-1 text-sm text-red-600 hover:text-red-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
-//         if (mode === 'create' && !formData.password?.trim()) {
-//             newErrors.password = 'Password is required';
-//         }
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            First Name *
+          </label>
+          <input
+            type="text"
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-//         setErrors(newErrors);
-//         return Object.keys(newErrors).length === 0;
-//     };
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Last Name *
+          </label>
+          <input
+            type="text"
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
 
-//     const handleSubmit = async (e: React.FormEvent) => {
-//         e.preventDefault();
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Email *
+        </label>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
 
-//         if (!validateForm()) return;
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Phone Number *
+        </label>
+        <input
+          type="tel"
+          name="phoneNumber"
+          value={formData.phoneNumber}
+          onChange={handleChange}
+          required
+          placeholder="+1234567890"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
 
-//         setIsLoading(true);
-//         try {
-//             let submitData = { ...formData };
-            
-//             // For edit mode, don't send password if it's empty
-//             if (mode === 'edit' && !submitData.password?.trim()) {
-//                 const { password, ...dataWithoutPassword } = submitData;
-//                 submitData = dataWithoutPassword as Account;
-//             }
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Password *
+          </label>
+          <input
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-//             if (mode === 'create') {
-//                 const response = await accountService.createAccount(submitData);
-//                 if (response.success) {
-//                     toast({
-//                         title: 'Success',
-//                         description: 'Account created successfully',
-//                         status: 'success',
-//                         duration: 3000,
-//                         isClosable: true,
-//                     });
-//                 }
-//             } else {
-//                 if (!id) {
-//                     throw new Error('Account ID is required for update');
-//                 }
-//                 const response = await accountService.updateAccount(id, submitData);
-//                 if (response.success) {
-//                     toast({
-//                         title: 'Success',
-//                         description: 'Account updated successfully',
-//                         status: 'success',
-//                         duration: 3000,
-//                         isClosable: true,
-//                     });
-//                 }
-//             }
-//             navigate('/accounts');
-//         } catch (error) {
-//             console.error(`Error ${mode}ing account:`, error);
-//             toast({
-//                 title: 'Error',
-//                 description: `Failed to ${mode} account: ${error instanceof Error ? error.message : 'Unknown error'}`,
-//                 status: 'error',
-//                 duration: 5000,
-//                 isClosable: true,
-//             });
-//         } finally {
-//             setIsLoading(false);
-//         }
-//     };
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Confirm Password *
+          </label>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
 
-//     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-//         const { name, value } = e.target;
-//         setFormData(prev => ({ ...prev, [name]: value }));
-//         // Clear error when user starts typing
-//         if (errors[name]) {
-//             setErrors(prev => ({ ...prev, [name]: '' }));
-//         }
-//     };
+      {passwordError && (
+        <p className="text-sm text-red-600">{passwordError}</p>
+      )}
 
-//     return (
-//         <Box p={5}>
-//             <form onSubmit={handleSubmit}>
-//                 <VStack spacing={4} align="stretch">
-//                     <Grid templateColumns="repeat(2, 1fr)" gap={6}>
-//                         <GridItem>
-//                             <FormControl isInvalid={!!errors.uname}>
-//                                 <FormLabel>Username</FormLabel>
-//                                 <Input
-//                                     name="uname"
-//                                     value={formData.uname || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Enter username"
-//                                 />
-//                                 <FormErrorMessage>{errors.uname}</FormErrorMessage>
-//                             </FormControl>
-//                         </GridItem>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Role
+        </label>
+        <select
+          name="role"
+          value={formData.role}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
 
-//                         <GridItem>
-//                             <FormControl isInvalid={!!errors.email}>
-//                                 <FormLabel>Email</FormLabel>
-//                                 <Input
-//                                     name="email"
-//                                     type="email"
-//                                     value={formData.email || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Enter email"
-//                                 />
-//                                 <FormErrorMessage>{errors.email}</FormErrorMessage>
-//                             </FormControl>
-//                         </GridItem>
+      <div className="flex justify-end space-x-3 pt-4">
+        <button
+          type="button"
+          onClick={onSuccess}
+          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {loading ? 'Creating...' : 'Create Account'}
+        </button>
+      </div>
+    </form>
+  );
+};
 
-//                         {mode === 'create' && (
-//                             <GridItem>
-//                                 <FormControl isInvalid={!!errors.password}>
-//                                     <FormLabel>Password</FormLabel>
-//                                     <Input
-//                                         name="password"
-//                                         type="password"
-//                                         value={formData.password || ''}
-//                                         onChange={handleChange}
-//                                         placeholder="Enter password"
-//                                     />
-//                                     <FormErrorMessage>{errors.password}</FormErrorMessage>
-//                                 </FormControl>
-//                             </GridItem>
-//                         )}
-
-//                         <GridItem>
-//                             <FormControl isInvalid={!!errors.role}>
-//                                 <FormLabel>Role</FormLabel>
-//                                 <Select
-//                                     name="role"
-//                                     value={formData.role || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Select role"
-//                                 >
-//                                     <option value="admin">Admin</option>
-//                                     <option value="user">User</option>
-//                                     <option value="agency">Agency</option>
-//                                     <option value="company">Company</option>
-//                                 </Select>
-//                                 <FormErrorMessage>{errors.role}</FormErrorMessage>
-//                             </FormControl>
-//                         </GridItem>
-
-//                         <GridItem>
-//                             <FormControl>
-//                                 <FormLabel>Agency</FormLabel>
-//                                 <Select
-//                                     name="agency"
-//                                     value={formData.agency || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Select agency (optional)"
-//                                 >
-//                                     {agencies.map((agency) => (
-//                                         <option key={agency._id || agency.id} value={agency._id || agency.id}>
-//                                             {agency.name}
-//                                         </option>
-//                                     ))}
-//                                 </Select>
-//                             </FormControl>
-//                         </GridItem>
-
-//                         <GridItem>
-//                             <FormControl>
-//                                 <FormLabel>Company</FormLabel>
-//                                 <Select
-//                                     name="company"
-//                                     value={formData.company || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Select company (optional)"
-//                                 >
-//                                     {companies.map((company) => (
-//                                         <option key={company._id || company.id} value={company._id || company.id}>
-//                                             {company.name}
-//                                         </option>
-//                                     ))}
-//                                 </Select>
-//                             </FormControl>
-//                         </GridItem>
-
-//                         <GridItem>
-//                             <FormControl>
-//                                 <FormLabel>Location</FormLabel>
-//                                 <Input
-//                                     name="location"
-//                                     value={formData.location || ''}
-//                                     onChange={handleChange}
-//                                     placeholder="Enter location (optional)"
-//                                 />
-//                             </FormControl>
-//                         </GridItem>
-
-//                         <GridItem>
-//                             <FormControl>
-//                                 <FormLabel>Status</FormLabel>
-//                                 <Select
-//                                     name="status"
-//                                     value={formData.status || 'active'}
-//                                     onChange={handleChange}
-//                                 >
-//                                     <option value="active">Active</option>
-//                                     <option value="inactive">Inactive</option>
-//                                     <option value="pending">Pending</option>
-//                                 </Select>
-//                             </FormControl>
-//                         </GridItem>
-//                     </Grid>
-
-//                     <Box display="flex" gap={4} mt={6}>
-//                         <Button
-//                             colorScheme="blue"
-//                             type="submit"
-//                             isLoading={isLoading}
-//                             loadingText={mode === 'create' ? 'Creating...' : 'Updating...'}
-//                         >
-//                             {mode === 'create' ? 'Create Account' : 'Update Account'}
-//                         </Button>
-//                         <Button 
-//                             onClick={() => navigate('/accounts')}
-//                             isDisabled={isLoading}
-//                         >
-//                             Cancel
-//                         </Button>
-//                     </Box>
-//                 </VStack>
-//             </form>
-//         </Box>
-//     );
-// }
+export default AccountForm;

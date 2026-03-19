@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useAppDispatch, useAppSelector } from '../../store/store';
-import { fetchAdminCategories, createCategory, deleteCategory, clearError } from '../../store/features/jobCategoriesSlice';
+import { fetchAdminCategories, fetchCategoriesByLang, fetchCategoriesByType, createCategory, deleteCategory, clearError } from '../../store/features/jobCategoriesSlice';
 import { toast } from 'react-toastify';
 
 const JobCategories: React.FC = () => {
   const dispatch = useAppDispatch();
   const { adminCategories, loading, error } = useAppSelector((state) => state.jobCategories);
   const [showForm, setShowForm] = useState(false);
+  const [langFilter, setLangFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [formData, setFormData] = useState({ 
     name: '', 
     description: '', 
@@ -17,8 +19,14 @@ const JobCategories: React.FC = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchAdminCategories());
-  }, [dispatch]);
+    if (langFilter !== 'all') {
+      dispatch(fetchCategoriesByLang(langFilter));
+    } else if (typeFilter !== 'all') {
+      dispatch(fetchCategoriesByType(typeFilter));
+    } else {
+      dispatch(fetchAdminCategories());
+    }
+  }, [dispatch, langFilter, typeFilter]);
 
   useEffect(() => {
     if (error) {
@@ -52,7 +60,23 @@ const JobCategories: React.FC = () => {
     <Container>
       <Header>
         <Title>Job Categories</Title>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'Add Category'}</Button>
+        <Filters>
+          <Select value={langFilter} onChange={(e) => { setLangFilter(e.target.value); setTypeFilter('all'); }}>
+            <option value="all">All Languages</option>
+            <option value="English">English</option>
+            <option value="Amharic">Amharic</option>
+            <option value="Oromiffa">Oromiffa</option>
+          </Select>
+          <Select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setLangFilter('all'); }}>
+            <option value="all">All Types</option>
+            <option value="company">Company</option>
+            <option value="local_agency">Local Agency</option>
+            <option value="Int_agency">Int. Agency</option>
+            <option value="bpo">BPO</option>
+            <option value="broker">Broker</option>
+          </Select>
+          <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : 'Add Category'}</Button>
+        </Filters>
       </Header>
       {showForm && (
         <Form onSubmit={handleSubmit}>
@@ -87,6 +111,8 @@ export default JobCategories;
 const Container = styled.div`padding: 24px;`;
 const Header = styled.div`display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;`;
 const Title = styled.h1`font-size: 28px; font-weight: 600; color: #1a202c;`;
+const Filters = styled.div`display: flex; gap: 12px; align-items: center;`;
+const Select = styled.select`padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;`;
 const Button = styled.button`padding: 10px 24px; background: #3182ce; color: white; border: none; border-radius: 6px; cursor: pointer; &:hover { background: #2c5282; }`;
 const Form = styled.form`background: white; padding: 24px; border-radius: 8px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px;`;
 const Input = styled.input`padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px;`;

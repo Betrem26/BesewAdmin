@@ -427,6 +427,7 @@ const JobMonitoring: React.FC = () => {
     total_applications: 0,
     avg_applications_per_job: 0,
   });
+  const [agencyStats, setAgencyStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -487,6 +488,13 @@ const JobMonitoring: React.FC = () => {
         total_applications: statsData.total_applications || 0,
         avg_applications_per_job: statsData.avg_applications_per_job || 0,
       });
+
+      try {
+        const aStats = await monitoringApi.job.getAgencyStats();
+        setAgencyStats(aStats);
+      } catch (err) {
+        console.log('Skipping agency stats (might not be an agency user).');
+      }
     } catch (err) {
       console.error('Failed to load stats from API:', err);
       // Fallback: Calculate stats from loaded jobs if API fails
@@ -604,6 +612,27 @@ const JobMonitoring: React.FC = () => {
           </StatLabel>
         </StatCard>
       </StatsBar>
+
+      {agencyStats && Object.keys(agencyStats).length > 0 && (
+        <>
+          <PageTitle style={{ fontSize: '20px', marginTop: '10px', marginBottom: '20px' }}>Your Agency Statistics</PageTitle>
+          <StatsBar>
+            {Object.entries(agencyStats).map(([key, value]) => {
+              if (typeof value !== 'object' && value !== null) {
+                return (
+                  <StatCard key={key}>
+                    <StatValue>{String(value)}</StatValue>
+                    <StatLabel style={{ textTransform: 'capitalize' }}>
+                      {key.replace(/_/g, ' ')}
+                    </StatLabel>
+                  </StatCard>
+                );
+              }
+              return null;
+            })}
+          </StatsBar>
+        </>
+      )}
 
       <FiltersCard>
         <FiltersGrid>

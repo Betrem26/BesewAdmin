@@ -115,6 +115,26 @@ export const jobMonitoringApi = {
       throw new Error(handleApiError(error));
     }
   },
+
+  // Get agency-specific job and application statistics
+  getAgencyStats: async () => {
+    try {
+      const response = await jobApi.get('/posts/agency/stats');
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // Get detailed agency-specific job and application statistics
+  getDetailedAgencyStats: async () => {
+    try {
+      const response = await jobApi.get('/posts/agency/detailed-stats');
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
 };
 
 // Party Service Monitoring (Startups/Organizations)
