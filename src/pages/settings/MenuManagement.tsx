@@ -23,6 +23,9 @@ const WorkerType = {
 const SubscriptionTier = {
   FREE: 'FREE',
   TRIAL: 'TRIAL',
+  STANDARD: 'STANDARD',
+  GROWTH: 'GROWTH',
+  PROFESSIONAL: 'PROFESSIONAL',
   PREMIUM: 'PREMIUM',
   ENTERPRISE: 'ENTERPRISE'
 };
