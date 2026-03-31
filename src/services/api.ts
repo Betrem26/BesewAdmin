@@ -10,7 +10,7 @@ export const API_ENDPOINTS = {
   psychometric: 'https://psychometric.besewonline.com',
   candidate: 'https://candidate.besewonline.com',
   party: 'https://party.besewonline.com',
-  commission: 'https://comission.besewonline.com',
+  commission: 'https://commission.besewonline.com',
   employee: 'https://employee.besewonline.com',
   notification: 'https://notify.besewonline.com',
 };
