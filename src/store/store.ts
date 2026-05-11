@@ -1,6 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
-import { persistReducer, persistStore } from 'redux-persist';
+import { persistReducer, persistStore, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from 'redux-persist';
 import storage from "redux-persist/es/storage";
 import { combineReducers } from 'redux';
 import userSlice from "./features/userSlice";
@@ -12,17 +12,14 @@ import psychometricSlice from "./features/psychometricSlice";
 import statisticsSlice from "./features/statisticsSlice";
 import menuConfigSlice from "./features/menuConfigSlice";
 
-// Define persist config
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['user'], // Only persist user data
+  whitelist: ['user'],
 };
 
-// Define root reducer type
 type RootReducerType = ReturnType<typeof rootReducer>;
 
-// Define root reducer
 const rootReducer = combineReducers({
   user: userSlice,
   customerSupport: customerSupportSlice,
@@ -34,18 +31,20 @@ const rootReducer = combineReducers({
   menuConfig: menuConfigSlice,
 });
 
-// Enhance root reducer with persistence
 const persistedReducer = persistReducer<RootReducerType>(persistConfig, rootReducer);
 
-// Create store
 export const store = configureStore({
-  reducer: persistedReducer
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
 });
 
-// Create persisted store
 export const persistor = persistStore(store);
 
-// Types
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 export const useAppDispatch = () => useDispatch<AppDispatch>();

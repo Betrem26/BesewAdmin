@@ -4,23 +4,10 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { clearToken, clearUser } from '../store/features/userSlice';
-import { checkPermission } from '../utils/rbac';
 import {
-  FiHome,
-  FiUsers,
-  FiHeadphones,
-  FiShield,
-  FiBriefcase,
-  FiTarget,
-  FiSettings,
-  FiLogOut,
-  FiMenu,
-  FiX,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiActivity,
-  FiBell,
-  FiBarChart2,
+  FiHome, FiUsers, FiHeadphones, FiShield, FiBriefcase, FiTarget,
+  FiSettings, FiLogOut, FiMenu, FiX, FiAlertCircle, FiTrendingUp,
+  FiActivity, FiBell, FiBarChart2,
 } from 'react-icons/fi';
 import besewLogo from '../assets/besew-logo.jpg';
 
@@ -30,8 +17,8 @@ const LayoutContainer = styled.div`
   background: #f5f7fa;
 `;
 
-const Sidebar = styled.aside<{ isOpen: boolean }>`
-  width: ${props => props.isOpen ? '260px' : '0'};
+const Sidebar = styled.aside<{ $isOpen: boolean }>`
+  width: ${p => p.$isOpen ? '260px' : '0'};
   background: #2c3e50;
   color: white;
   transition: width 0.3s ease;
@@ -39,15 +26,14 @@ const Sidebar = styled.aside<{ isOpen: boolean }>`
   position: fixed;
   height: 100vh;
   z-index: 1000;
-
   @media (max-width: 768px) {
-    width: ${props => props.isOpen ? '260px' : '0'};
+    width: ${p => p.$isOpen ? '260px' : '0'};
   }
 `;
 
 const SidebarHeader = styled.div`
   padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -57,78 +43,45 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-  
-  img {
-    height: 32px;
-  }
-  
-  span {
-    font-size: 18px;
-    font-weight: 600;
-  }
+  img { height: 32px; }
+  span { font-size: 18px; font-weight: 600; }
 `;
 
 const CloseButton = styled.button`
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 5px;
+  background: none; border: none; color: white; cursor: pointer; padding: 5px;
   display: none;
-
-  @media (max-width: 768px) {
-    display: block;
-  }
+  @media (max-width: 768px) { display: block; }
 `;
 
-const Nav = styled.nav`
-  padding: 20px 0;
-`;
+const Nav = styled.nav`padding: 20px 0;`;
+const NavSection = styled.div`margin-bottom: 20px;`;
 
-const NavSection = styled.div`
-  margin-bottom: 20px;
-`;
-
-const NavItem = styled.div<{ active: boolean }>`
+const NavItem = styled.div<{ $active: boolean }>`
   padding: 12px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  background: ${props => props.active ? 'rgba(255, 255, 255, 0.1)' : 'transparent'};
-  border-left: 3px solid ${props => props.active ? '#3498db' : 'transparent'};
-  color: ${props => props.active ? '#fff' : 'rgba(255, 255, 255, 0.8)'};
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
-  }
-
-  svg {
-    font-size: 18px;
-  }
-
-  span {
-    font-size: 14px;
-    font-weight: 500;
-  }
+  background: ${p => p.$active ? 'rgba(255,255,255,0.1)' : 'transparent'};
+  border-left: 3px solid ${p => p.$active ? '#3498db' : 'transparent'};
+  color: ${p => p.$active ? '#fff' : 'rgba(255,255,255,0.8)'};
+  &:hover { background: rgba(255,255,255,0.05); color: #fff; }
+  svg { font-size: 18px; }
+  span { font-size: 14px; font-weight: 500; }
 `;
 
-const MainContent = styled.main<{ sidebarOpen: boolean }>`
+const MainContent = styled.main<{ $sidebarOpen: boolean }>`
   flex: 1;
-  margin-left: ${props => props.sidebarOpen ? '260px' : '0'};
+  margin-left: ${p => p.$sidebarOpen ? '260px' : '0'};
   transition: margin-left 0.3s ease;
-  
-  @media (max-width: 768px) {
-    margin-left: 0;
-  }
+  @media (max-width: 768px) { margin-left: 0; }
 `;
 
 const TopBar = styled.header`
   background: white;
   padding: 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -150,25 +103,15 @@ const TabsContainer = styled.div`
   padding: 0 30px;
   gap: 5px;
   background: #f9f9f9;
-  
-  &::-webkit-scrollbar {
-    height: 4px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 2px;
-  }
+  &::-webkit-scrollbar { height: 4px; }
+  &::-webkit-scrollbar-track { background: #f1f1f1; }
+  &::-webkit-scrollbar-thumb { background: #888; border-radius: 2px; }
 `;
 
-const Tab = styled.button<{ active: boolean }>`
+const Tab = styled.button<{ $active: boolean }>`
   padding: 12px 16px;
-  background: ${props => props.active ? '#3498db' : 'transparent'};
-  color: ${props => props.active ? 'white' : '#666'};
+  background: ${p => p.$active ? '#3498db' : 'transparent'};
+  color: ${p => p.$active ? 'white' : '#666'};
   border: none;
   cursor: pointer;
   font-size: 13px;
@@ -176,56 +119,25 @@ const Tab = styled.button<{ active: boolean }>`
   white-space: nowrap;
   border-radius: 4px 4px 0 0;
   transition: all 0.2s;
-  
-  &:hover {
-    background: ${props => props.active ? '#2980b9' : '#e8e8e8'};
-  }
+  &:hover { background: ${p => p.$active ? '#2980b9' : '#e8e8e8'}; }
 `;
 
 const MenuButton = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  display: flex;
-  align-items: center;
-  color: #2c3e50;
-  font-size: 20px;
+  background: none; border: none; cursor: pointer; padding: 8px;
+  display: flex; align-items: center; color: #2c3e50; font-size: 20px;
 `;
 
-const UserInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 15px;
-`;
-
-const UserName = styled.span`
-  font-weight: 500;
-  color: #2c3e50;
-`;
+const UserInfo = styled.div`display: flex; align-items: center; gap: 15px;`;
+const UserName = styled.span`font-weight: 500; color: #2c3e50;`;
 
 const LogoutButton = styled.button`
-  background: #e74c3c;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  transition: background 0.2s;
-
-  &:hover {
-    background: #c0392b;
-  }
+  background: #e74c3c; color: white; border: none; padding: 8px 16px;
+  border-radius: 4px; cursor: pointer; display: flex; align-items: center;
+  gap: 8px; font-size: 14px; transition: background 0.2s;
+  &:hover { background: #c0392b; }
 `;
 
-const ContentArea = styled.div`
-  padding: 30px;
-  min-height: calc(100vh - 70px);
-`;
+const ContentArea = styled.div`padding: 30px; min-height: calc(100vh - 70px);`;
 
 interface MenuItem {
   path: string;
@@ -254,8 +166,8 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
   {
     section: 'User Management',
     items: [
-      { path: '/dashboard/users', label: 'Users', icon: <FiUsers />, permission: 'MANAGE_USERS' },
-      { path: '/dashboard/roles', label: 'Roles', icon: <FiShield />, permission: 'MANAGE_ROLES' },
+      { path: '/dashboard/users', label: 'Users', icon: <FiUsers /> },
+      { path: '/dashboard/roles', label: 'Roles', icon: <FiShield /> },
     ],
   },
   {
@@ -320,61 +232,39 @@ const DashboardLayout: React.FC = () => {
     navigate('/');
   };
 
-  // Auto-detect active tab based on path
   React.useEffect(() => {
     const currentPath = location.pathname;
-    const foundSection = menuItems.find(section => 
+    const foundSection = menuItems.find(section =>
       section.items.some(item => currentPath.startsWith(item.path))
     );
-    if (foundSection) {
-      setActiveTab(foundSection.section);
-    }
+    if (foundSection) setActiveTab(foundSection.section);
   }, [location.pathname]);
 
   const handleNavigation = (path: string) => {
     navigate(path);
-    if (window.innerWidth <= 768) {
-      setSidebarOpen(false);
-    }
+    if (window.innerWidth <= 768) setSidebarOpen(false);
   };
 
   return (
     <LayoutContainer>
-      <Sidebar isOpen={sidebarOpen}>
+      <Sidebar $isOpen={sidebarOpen}>
         <SidebarHeader>
           <Logo>
             <img src={besewLogo} alt="BESEW" />
             <span>Admin</span>
           </Logo>
-          <CloseButton onClick={() => setSidebarOpen(false)}>
-            <FiX />
-          </CloseButton>
+          <CloseButton onClick={() => setSidebarOpen(false)}><FiX /></CloseButton>
         </SidebarHeader>
 
         <Nav>
           {menuItems.map((section, idx) => {
-            // Only show items from active tab
             if (section.section !== activeTab) return null;
-
-            // Filter items based on permissions
-            const visibleItems = section.items.filter(item => {
-              if (!item.permission) return true;
-              // Relax permission check for testing/missing user state
-              const hasPermission = checkPermission(item.permission as any);
-              return hasPermission || !user; // Show everything if user is not loaded
-            });
-
-            // Don't render section if no visible items
-            if (visibleItems.length === 0) {
-              return null;
-            }
-
             return (
               <NavSection key={idx}>
-                {visibleItems.map((item) => (
+                {section.items.map(item => (
                   <NavItem
                     key={item.path}
-                    active={location.pathname === item.path}
+                    $active={location.pathname === item.path}
                     onClick={() => handleNavigation(item.path)}
                   >
                     {item.icon}
@@ -387,33 +277,24 @@ const DashboardLayout: React.FC = () => {
         </Nav>
       </Sidebar>
 
-      <MainContent sidebarOpen={sidebarOpen}>
+      <MainContent $sidebarOpen={sidebarOpen}>
         <TopBar>
           <TopBarMain>
-            <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
-              <FiMenu />
-            </MenuButton>
-
+            <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}><FiMenu /></MenuButton>
             <UserInfo>
               <UserName>{user?.phonenumber || 'Admin'}</UserName>
-              <LogoutButton onClick={handleLogout}>
-                <FiLogOut />
-                Logout
-              </LogoutButton>
+              <LogoutButton onClick={handleLogout}><FiLogOut /> Logout</LogoutButton>
             </UserInfo>
           </TopBarMain>
 
           <TabsContainer>
-            {menuItems.map((section) => (
+            {menuItems.map(section => (
               <Tab
                 key={section.section}
-                active={activeTab === section.section}
+                $active={activeTab === section.section}
                 onClick={() => {
                   setActiveTab(section.section);
-                  // Optional: Navigate to the first item in the section instantly
-                  if (section.items.length > 0) {
-                    handleNavigation(section.items[0].path);
-                  }
+                  if (section.items.length > 0) handleNavigation(section.items[0].path);
                 }}
               >
                 {section.section}

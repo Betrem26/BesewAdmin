@@ -30,7 +30,7 @@ export interface AccountsResponse {
 export const accountService = {
   getAccounts: async (params?: any) => {
     try {
-      const response = await accountApi.get<AccountsResponse>('/api/accounts', { params });
+      const response = await accountApi.get<AccountsResponse>('/accounts', { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching accounts:', error);

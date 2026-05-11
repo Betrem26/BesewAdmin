@@ -226,15 +226,29 @@ const SignIn: React.FC = () => {
     }
 
     try {
+      // Normalize phone number to E.164 format (+251XXXXXXXXX)
+      let phone = formData.phonenumber.trim();
+      if (!phone.startsWith('+')) {
+        // If starts with 0, replace with +251
+        if (phone.startsWith('0')) {
+          phone = '+251' + phone.slice(1);
+        } else if (phone.startsWith('251')) {
+          phone = '+' + phone;
+        } else {
+          phone = '+251' + phone;
+        }
+      }
+
+      const loginUrl = `${import.meta.env.VITE_ACCOUNT_SERVICE || 'https://stage-account.besewonline.com'}/auth/login`;
       const response = await fetch(
-        "https://account.besewonline.com/auth/login",
+        loginUrl,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            phonenumber: formData.phonenumber,
+            phonenumber: phone,
             password: formData.password,
           }),
         }
@@ -264,55 +278,45 @@ const SignIn: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Login response full:', JSON.stringify(data, null, 2));
 
-      // Check if account requires OTP verification (but allow admin bypass)
-      if (data.user && (data.user.status === 'pending_otp' || data.user.status === 'pending_verification')) {
-        // Allow admin accounts to bypass OTP verification
-        if (data.user.role === 'admin') {
-          console.log('Admin account detected - bypassing OTP verification');
-          setWarning("Admin account detected. Proceeding to dashboard...");
-          
-          // Dispatch tokens and user data for admin
-          dispatch(setToken(data.access_token));
-          dispatch(setUser(data.user));
-
-          if (data.refresh_token) {
-            localStorage.setItem('refreshToken', data.refresh_token);
-          }
-
-          setTimeout(() => {
-            navigate("/dashboard");
-          }, 1000);
-          setLoading(false);
-          return;
-        }
-        
-        // For non-admin accounts, require OTP verification
-        setWarning("Your account requires verification. Redirecting to verification page...");
-        setTimeout(() => {
-          navigate("/verify-otp", {
-            state: {
-              phonenumber: formData.phonenumber,
-              userId: data.user._id,
-              requiresVerification: true
-            }
-          });
-        }, 2000);
+      // This API returns 201 even for errors — check the body
+      if (data.status === 404 || data.status === 400 || data.status === 401 || (!data.access_token && !data.accessToken && !data.token)) {
+        setError(data.message || 'Invalid phone number or password.');
         setLoading(false);
         return;
       }
 
-      dispatch(setToken(data.access_token));
-      dispatch(setUser(data.user));
+      // Handle different token field names the API might return
+      const accessToken = data.access_token || data.accessToken || data.token;
+      // Handle different user object field names
+      const userData = data.user || data.account || data.data || {};
 
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token);
+      console.log('Access token:', accessToken ? 'found' : 'MISSING');
+      console.log('User data:', JSON.stringify(userData, null, 2));
+
+      dispatch(setToken(accessToken));
+      dispatch(setUser(userData));
+      console.log('Token and user dispatched to Redux');
+
+      if (data.refresh_token || data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refresh_token || data.refreshToken);
       }
 
-      setSuccess("Login successful! Redirecting to dashboard...");
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
+      // Check if non-admin with pending OTP — redirect to verify
+      if (userData && (userData.status === 'pending_otp' || userData.status === 'pending_verification') && userData.role !== 'admin') {
+        console.log('Redirecting to OTP verification');
+        navigate("/verify-otp", {
+          state: { phonenumber: phone, userId: userData._id || userData.party_id }
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Navigate to dashboard immediately — no setTimeout
+      console.log('Navigating to dashboard');
+      setSuccess("Login successful!");
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       setError("An error occurred while signing in. Please try again.");
@@ -337,7 +341,7 @@ const SignIn: React.FC = () => {
               id="phonenumber"
               name="phonenumber"
               type="tel"
-              placeholder="Enter your phone number"
+              placeholder="e.g. +251910296505 or 0910296505"
               autoComplete="tel"
               value={formData.phonenumber}
               onChange={handleInputChange}
