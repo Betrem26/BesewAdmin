@@ -1,28 +1,31 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   server: {
-    port: 5134,
+    port: 3000,
+    proxy: {
+      '/api/account': {
+        target: 'https://stage-account.besewonline.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/account/, ''),
+        secure: true,
+      },
+    },
   },
   optimizeDeps: {
     include: [
       'redux-persist/es/persistReducer',
       'redux-persist/es/persistCombineReducers',
       'redux-persist/es/stateReconciler/autoMergeLevel1',
-      'redux-persist/es/stateReconciler/autoMergeLevel2'
+      'redux-persist/es/stateReconciler/autoMergeLevel2',
     ],
   },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {
-        // Suppress "use client" directive warnings from:
-        // - react-toastify
-        // - @mui/material (all components)
-        // - @mui/icons-material (all icons)
-        // These are harmless - the libraries work correctly despite the warnings
-        if (warning.code === 'MODULE_LEVEL_DIRECTIVE_ON_BUNDLED_MODULE') {
-          return;
-        }
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE_ON_BUNDLED_MODULE') return;
         warn(warning);
       },
     },

@@ -21,10 +21,14 @@ export interface Account {
   name?: string;
   last_name?: string;
   email?: string;
+  phone?: string;
+  phonenumber?: string;
   avatar?: string;
   role: string;
   date: string;
   status: string;
+  is_verified?: boolean;
+  verified?: boolean;
   country?: string;
   agency_party_id?: string;
   subscription?: Subscription;

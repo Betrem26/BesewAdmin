@@ -239,7 +239,9 @@ const SignIn: React.FC = () => {
         }
       }
 
-      const loginUrl = `${import.meta.env.VITE_ACCOUNT_SERVICE || 'https://stage-account.besewonline.com'}/auth/login`;
+      const baseUrl = import.meta.env.VITE_ACCOUNT_SERVICE
+        || (import.meta.env.DEV ? '/api/account' : 'https://stage-account.besewonline.com');
+      const loginUrl = `${baseUrl}/auth/login`;
       const response = await fetch(
         loginUrl,
         {

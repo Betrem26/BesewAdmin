@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
-import { FiSearch, FiTrash2, FiUserCheck, FiUserX, FiShield } from 'react-icons/fi';
+import { FiSearch, FiTrash2, FiUserX, FiShield, FiPhone, FiCheckCircle, FiXCircle, FiFilter } from 'react-icons/fi';
 import accountsApi, { Account } from '../../services/accountsApi';
 
 const UserManagement: React.FC = () => {
@@ -11,9 +11,7 @@ const UserManagement: React.FC = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+  useEffect(() => { fetchAccounts(); }, []);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -58,11 +56,16 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const getPhone = (a: Account) => a.phone || a.phonenumber || '';
+  const isVerified = (a: Account) => a.is_verified === true || a.verified === true;
+
   const filtered = accounts.filter(a => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      a.profile_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.party_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (a.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+      a.profile_name.toLowerCase().includes(q) ||
+      a.party_id.toLowerCase().includes(q) ||
+      (a.email || '').toLowerCase().includes(q) ||
+      getPhone(a).toLowerCase().includes(q);
     const matchesRole = filterRole === 'all' || a.role === filterRole;
     const matchesStatus = filterStatus === 'all' || a.status === filterStatus;
     return matchesSearch && matchesRole && matchesStatus;
@@ -70,6 +73,7 @@ const UserManagement: React.FC = () => {
 
   const activeCount = accounts.filter(a => a.status === 'active').length;
   const pendingCount = accounts.filter(a => a.status === 'pending_otp').length;
+  const hasFilters = searchTerm || filterRole !== 'all' || filterStatus !== 'all';
 
   return (
     <Container>
@@ -97,15 +101,18 @@ const UserManagement: React.FC = () => {
 
       <FilterSection>
         <SearchBox>
-          <FiSearch />
+          <SearchIconWrap><FiSearch /></SearchIconWrap>
           <SearchInput
             type="text"
-            placeholder="Search by name, party ID or email..."
+            placeholder="Search by name, party ID, email or phone…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
+          {searchTerm && <ClearBtn onClick={() => setSearchTerm('')}>✕</ClearBtn>}
         </SearchBox>
+        <Divider />
         <FilterGroup>
+          <FilterLabel><FiFilter size={13} /> Filters</FilterLabel>
           <Select value={filterRole} onChange={e => setFilterRole(e.target.value)}>
             <option value="all">All Roles</option>
             <option value="user">User</option>
@@ -118,6 +125,9 @@ const UserManagement: React.FC = () => {
             <option value="pending_otp">Pending OTP</option>
           </Select>
         </FilterGroup>
+        {hasFilters && (
+          <ResultCount>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</ResultCount>
+        )}
       </FilterSection>
 
       {loading && <LoadingText>Loading accounts...</LoadingText>}
@@ -146,19 +156,29 @@ const UserManagement: React.FC = () => {
                       : <AvatarPlaceholder>{account.profile_name.charAt(0).toUpperCase()}</AvatarPlaceholder>
                     }
                     <ProfileInfo>
-                      <ProfileName>{account.profile_name}</ProfileName>
+                      <ProfileNameRow>
+                        <ProfileName>{account.profile_name}</ProfileName>
+                        {isVerified(account)
+                          ? <VerifiedIcon title="Verified"><FiCheckCircle /></VerifiedIcon>
+                          : <UnverifiedIcon title="Not Verified"><FiXCircle /></UnverifiedIcon>
+                        }
+                      </ProfileNameRow>
                       {account.email && <ProfileEmail>{account.email}</ProfileEmail>}
+                      {getPhone(account)
+                        ? <ProfilePhone><FiPhone size={11} /> {getPhone(account)}</ProfilePhone>
+                        : <ProfilePhone style={{ color: '#cbd5e0' }}><FiPhone size={11} /> No phone</ProfilePhone>
+                      }
                     </ProfileInfo>
                   </ProfileCell>
                 </Td>
-                <Td>{account.party_id}</Td>
+                <Td><PartyIdText>{account.party_id}</PartyIdText></Td>
                 <Td>{account.party_type.name}</Td>
                 <Td><RoleBadge role={account.role}>{account.role}</RoleBadge></Td>
                 <Td><StatusBadge status={account.status}>{account.status.replace('_', ' ')}</StatusBadge></Td>
                 <Td>
                   {account.subscription
                     ? <SubBadge>{account.subscription.type}</SubBadge>
-                    : '-'
+                    : <NoneText>—</NoneText>
                   }
                 </Td>
                 <Td>{new Date(account.date).toLocaleDateString()}</Td>
@@ -190,32 +210,360 @@ const UserManagement: React.FC = () => {
 
 export default UserManagement;
 
-const Container = styled.div`padding: 24px;`;
-const Header = styled.div`margin-bottom: 32px;`;
-const Title = styled.h1`font-size: 28px; font-weight: 600; color: #1a202c; margin-bottom: 16px;`;
-const Stats = styled.div`display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;`;
-const StatCard = styled.div`background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
-const StatValue = styled.div`font-size: 32px; font-weight: 700; color: #3182ce; margin-bottom: 4px;`;
-const StatLabel = styled.div`font-size: 14px; color: #718096;`;
-const FilterSection = styled.div`background: white; padding: 20px; border-radius: 8px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap;`;
-const SearchBox = styled.div`flex: 1; min-width: 300px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 6px; svg { color: #718096; }`;
-const SearchInput = styled.input`flex: 1; border: none; outline: none; font-size: 14px;`;
-const FilterGroup = styled.div`display: flex; gap: 12px;`;
-const Select = styled.select`padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; cursor: pointer;`;
-const LoadingText = styled.p`text-align: center; color: #718096; padding: 40px;`;
-const EmptyState = styled.p`text-align: center; color: #718096; padding: 40px;`;
-const Table = styled.table`width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
-const Th = styled.th`text-align: left; padding: 12px; background: #f7fafc; color: #4a5568; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0;`;
-const Td = styled.td`padding: 12px; border-bottom: 1px solid #e2e8f0; color: #2d3748; font-size: 14px;`;
-const ProfileCell = styled.div`display: flex; align-items: center; gap: 10px;`;
-const Avatar = styled.img`width: 36px; height: 36px; border-radius: 50%; object-fit: cover;`;
-const AvatarPlaceholder = styled.div`width: 36px; height: 36px; border-radius: 50%; background: #3182ce; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;`;
-const ProfileInfo = styled.div`display: flex; flex-direction: column;`;
-const ProfileName = styled.span`font-weight: 500; font-size: 14px;`;
-const ProfileEmail = styled.span`font-size: 12px; color: #718096;`;
-const RoleBadge = styled.span<{ role: string }>`padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${p => p.role === 'admin' ? '#fed7d7' : p.role === 'agency' ? '#feebc8' : '#c6f6d5'}; color: ${p => p.role === 'admin' ? '#742a2a' : p.role === 'agency' ? '#7c2d12' : '#22543d'};`;
-const StatusBadge = styled.span<{ status: string }>`padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${p => p.status === 'active' ? '#c6f6d5' : '#fefcbf'}; color: ${p => p.status === 'active' ? '#22543d' : '#744210'}; text-transform: capitalize;`;
-const SubBadge = styled.span`padding: 4px 8px; border-radius: 4px; font-size: 12px; background: #ebf8ff; color: #2b6cb0; text-transform: capitalize;`;
-const ActionButtons = styled.div`display: flex; gap: 8px;`;
-const ActionButton = styled.button`padding: 6px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; &:hover { background: #2c5282; }`;
-const DeleteButton = styled.button`padding: 6px; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; &:hover { background: #c53030; }`;
+const Container = styled.div`
+  padding: 28px 32px;
+  background: #f0f4f8;
+  min-height: 100vh;
+`;
+
+const Header = styled.div`
+  margin-bottom: 28px;
+`;
+
+const Title = styled.h1`
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a202c;
+  margin-bottom: 20px;
+  letter-spacing: -0.3px;
+`;
+
+const Stats = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+`;
+
+const StatCard = styled.div`
+  background: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  border-left: 4px solid #3182ce;
+  transition: transform 0.15s, box-shadow 0.15s;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+`;
+
+const StatValue = styled.div`
+  font-size: 30px;
+  font-weight: 700;
+  color: #3182ce;
+  margin-bottom: 4px;
+  line-height: 1;
+`;
+
+const StatLabel = styled.div`
+  font-size: 13px;
+  color: #718096;
+  font-weight: 500;
+`;
+
+const FilterSection = styled.div`
+  background: white;
+  padding: 14px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+`;
+
+const SearchBox = styled.div`
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f7fafc;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  &:focus-within {
+    border-color: #3182ce;
+    box-shadow: 0 0 0 3px rgba(49,130,206,0.12);
+    background: white;
+  }
+`;
+
+const SearchIconWrap = styled.div`
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  color: #a0aec0;
+  font-size: 16px;
+  flex-shrink: 0;
+`;
+
+const SearchInput = styled.input`
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: #2d3748;
+  &::placeholder { color: #a0aec0; }
+`;
+
+const ClearBtn = styled.button`
+  background: none;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 12px;
+  line-height: 1;
+  &:hover { color: #4a5568; }
+`;
+
+const Divider = styled.div`
+  width: 1px;
+  height: 32px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+`;
+
+const FilterGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const FilterLabel = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #718096;
+  font-weight: 500;
+  white-space: nowrap;
+`;
+
+const Select = styled.select`
+  padding: 8px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  background: #f7fafc;
+  color: #2d3748;
+  outline: none;
+  transition: border-color 0.2s;
+  &:focus { border-color: #3182ce; background: white; }
+`;
+
+const ResultCount = styled.span`
+  margin-left: auto;
+  font-size: 13px;
+  color: #3182ce;
+  font-weight: 600;
+  background: #ebf8ff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #bee3f8;
+  white-space: nowrap;
+`;
+
+const LoadingText = styled.p`
+  text-align: center;
+  color: #718096;
+  padding: 60px;
+  font-size: 15px;
+`;
+
+const EmptyState = styled.p`
+  text-align: center;
+  color: #a0aec0;
+  padding: 60px;
+  font-size: 15px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+`;
+
+const Th = styled.th`
+  text-align: left;
+  padding: 13px 16px;
+  background: #f7fafc;
+  color: #4a5568;
+  font-weight: 600;
+  font-size: 13px;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+`;
+
+const Td = styled.td`
+  padding: 13px 16px;
+  border-bottom: 1px solid #edf2f7;
+  color: #2d3748;
+  font-size: 14px;
+  vertical-align: middle;
+`;
+
+const ProfileCell = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const Avatar = styled.img`
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
+  flex-shrink: 0;
+`;
+
+const AvatarPlaceholder = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3182ce, #63b3ed);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+`;
+
+const ProfileInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const ProfileNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+`;
+
+const ProfileName = styled.span`
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a202c;
+`;
+
+const VerifiedIcon = styled.span`
+  color: #38a169;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+`;
+
+const UnverifiedIcon = styled.span`
+  color: #e53e3e;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+`;
+
+const ProfileEmail = styled.span`
+  font-size: 12px;
+  color: #718096;
+`;
+
+const ProfilePhone = styled.span`
+  font-size: 11px;
+  color: #a0aec0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+`;
+
+const PartyIdText = styled.span`
+  font-family: monospace;
+  font-size: 12px;
+  color: #4a5568;
+  background: #f7fafc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+`;
+
+const NoneText = styled.span`
+  color: #cbd5e0;
+  font-size: 16px;
+`;
+
+const RoleBadge = styled.span<{ role: string }>`
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${p => p.role === 'admin' ? '#fff5f5' : p.role === 'agency' ? '#fffaf0' : '#f0fff4'};
+  color: ${p => p.role === 'admin' ? '#c53030' : p.role === 'agency' ? '#c05621' : '#276749'};
+  border: 1px solid ${p => p.role === 'admin' ? '#fed7d7' : p.role === 'agency' ? '#fbd38d' : '#9ae6b4'};
+  text-transform: capitalize;
+`;
+
+const StatusBadge = styled.span<{ status: string }>`
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${p => p.status === 'active' ? '#f0fff4' : '#fffff0'};
+  color: ${p => p.status === 'active' ? '#276749' : '#744210'};
+  border: 1px solid ${p => p.status === 'active' ? '#9ae6b4' : '#f6e05e'};
+  text-transform: capitalize;
+`;
+
+const SubBadge = styled.span`
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  border: 1px solid #bee3f8;
+  text-transform: capitalize;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 6px;
+`;
+
+const ActionButton = styled.button`
+  padding: 7px;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  border: 1px solid #bee3f8;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  &:hover { background: #3182ce; color: white; border-color: #3182ce; }
+`;
+
+const DeleteButton = styled.button`
+  padding: 7px;
+  background: #fff5f5;
+  color: #c53030;
+  border: 1px solid #fed7d7;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  &:hover { background: #e53e3e; color: white; border-color: #e53e3e; }
+`;

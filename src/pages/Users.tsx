@@ -101,15 +101,22 @@ interface NewUserFormData {
 
 const formatPhoneNumber = (value: string): string => {
   if (!value) return "N/A";
-  // Remove all non-digit characters except +
   const cleaned = value.replace(/[^\d+]/g, "");
-
-  // Ensure it starts with +
   if (cleaned && !cleaned.startsWith("+")) {
     return "+" + cleaned;
   }
-
   return cleaned;
+};
+
+const formatDate = (dateString?: string): string => {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 function Users() {
@@ -119,12 +126,14 @@ function Users() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [verificationFilter, setVerificationFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openSidebar, setOpenSidebar] = useState(true);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [stats, setStats] = useState<UserStats>({
     total: 0,
     active: 0,
@@ -277,14 +286,17 @@ function Users() {
 
     // Search filter
     if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (user) =>
-          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.phone_number.includes(searchTerm) ||
-          user.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.location.toLowerCase().includes(searchTerm.toLowerCase())
+          user.name.toLowerCase().includes(lowerSearch) ||
+          user.last_name?.toLowerCase().includes(lowerSearch) ||
+          user.email?.toLowerCase().includes(lowerSearch) ||
+          user.phone_number.toLowerCase().includes(lowerSearch) ||
+          (user.party_id || "").toLowerCase().includes(lowerSearch) ||
+          user.role.toLowerCase().includes(lowerSearch) ||
+          user.company.toLowerCase().includes(lowerSearch) ||
+          user.location.toLowerCase().includes(lowerSearch)
       );
     }
 
@@ -302,9 +314,18 @@ function Users() {
       );
     }
 
+    // Verification filter
+    if (verificationFilter !== "all") {
+      filtered = filtered.filter((user) =>
+        verificationFilter === "verified"
+          ? user.auth_verified
+          : !user.auth_verified
+      );
+    }
+
     setFilteredUsers(filtered);
     setPage(0);
-  }, [searchTerm, statusFilter, roleFilter, users]);
+  }, [searchTerm, statusFilter, roleFilter, verificationFilter, users]);
 
   // Validate form data
   const validateForm = (): boolean => {
@@ -646,9 +667,12 @@ function Users() {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedUser(null);
   };
 
+  const closeUserDetails = () => {
+    setDetailsDialogOpen(false);
+    setSelectedUser(null);
+  };
 
   const getInitials = (name: string, lastName?: string) => {
     return `${name.charAt(0)}${lastName?.charAt(0) || ""}`.toUpperCase();
@@ -810,7 +834,7 @@ function Users() {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  placeholder="Search users by name, email, phone, company..."
+                  placeholder="Search by name, party ID, email, or phone"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
@@ -823,7 +847,7 @@ function Users() {
                 />
               </Grid>
 
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -834,11 +858,13 @@ function Users() {
                     <MenuItem value="all">All Status</MenuItem>
                     <MenuItem value="active">Active</MenuItem>
                     <MenuItem value="inactive">Inactive</MenuItem>
+                    <MenuItem value="suspended">Suspended</MenuItem>
+                    <MenuItem value="pending otp">Pending OTP</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
                   <InputLabel>Role</InputLabel>
                   <Select
@@ -855,6 +881,21 @@ function Users() {
                   </Select>
                 </FormControl>
               </Grid>
+
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Verification</InputLabel>
+                  <Select
+                    value={verificationFilter}
+                    onChange={(e) => setVerificationFilter(e.target.value)}
+                    label="Verification"
+                  >
+                    <MenuItem value="all">All Verification</MenuItem>
+                    <MenuItem value="verified">Verified</MenuItem>
+                    <MenuItem value="unverified">Unverified</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
           </Paper>
 
@@ -864,13 +905,13 @@ function Users() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>User</TableCell>
-                    <TableCell>Contact</TableCell>
+                    <TableCell>Profile</TableCell>
+                    <TableCell>Party ID</TableCell>
+                    <TableCell>Type</TableCell>
                     <TableCell>Role</TableCell>
-                    <TableCell>Company</TableCell>
-                    <TableCell>Location</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Verified</TableCell>
+                    <TableCell>Joined</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -878,7 +919,7 @@ function Users() {
                   {filteredUsers
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((user) => (
-                      <TableRow key={user._id}>
+                      <TableRow key={user._id} hover>
                         <TableCell>
                           <Box className="flex items-center space-x-3">
                             <Avatar>
@@ -891,41 +932,23 @@ function Users() {
                               >
                                 {user.name} {user.last_name}
                               </Typography>
-                              {user.uname && (
-                                <Typography
-                                  variant="caption"
-                                  color="textSecondary"
-                                >
-                                  @{user.uname}
-                                </Typography>
-                              )}
+                              <Typography variant="caption" className="block text-slate-500">
+                                {user.email || "No email"} • {formatPhoneNumber(user.phone_number)}
+                              </Typography>
                             </Box>
                           </Box>
                         </TableCell>
 
                         <TableCell>
-                          <Box>
-                            {user.email && (
-                              <Box className="flex items-center mb-1">
-                                <Email
-                                  className="w-4 h-4 mr-1"
-                                  fontSize="small"
-                                />
-                                <Typography variant="caption">
-                                  {user.email}
-                                </Typography>
-                              </Box>
-                            )}
-                            <Box className="flex items-center">
-                              <Phone
-                                className="w-4 h-4 mr-1"
-                                fontSize="small"
-                              />
-                              <Typography variant="caption">
-                                {user.phone_number}
-                              </Typography>
-                            </Box>
-                          </Box>
+                          <Typography variant="body2">
+                            {user.party_id || user._id}
+                          </Typography>
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2">
+                            {user.sex || "Individual"}
+                          </Typography>
                         </TableCell>
 
                         <TableCell>
@@ -937,36 +960,16 @@ function Users() {
                         </TableCell>
 
                         <TableCell>
-                          <Box className="flex items-center">
-                            <Business
-                              className="w-4 h-4 mr-1"
-                              fontSize="small"
-                            />
-                            <Typography variant="body2">
-                              {user.company}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-
-                        <TableCell>
-                          <Box className="flex items-center">
-                            <LocationOn
-                              className="w-4 h-4 mr-1"
-                              fontSize="small"
-                            />
-                            <Typography variant="body2">
-                              {user.location}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-
-                        <TableCell>
                           <Chip
                             label={user.status}
                             color={
-                              user.status === "Active" ? "success" :
-                                user.status === "Suspended" ? "error" :
-                                  user.status === "Pending OTP" ? "warning" : "default"
+                              user.status === "Active"
+                                ? "success"
+                                : user.status === "Suspended"
+                                ? "error"
+                                : user.status === "Pending OTP"
+                                ? "warning"
+                                : "default"
                             }
                             size="small"
                           />
@@ -974,12 +977,16 @@ function Users() {
 
                         <TableCell>
                           <Chip
-                            label={
-                              user.auth_verified ? "Verified" : "Unverified"
-                            }
+                            label={user.auth_verified ? "Verified" : "Unverified"}
                             color={user.auth_verified ? "primary" : "default"}
                             size="small"
                           />
+                        </TableCell>
+
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(user.created_at)}
+                          </Typography>
                         </TableCell>
 
                         <TableCell align="right">
@@ -1014,7 +1021,12 @@ function Users() {
         onClose={handleMenuClose}
       >
         <MenuList>
-          <MuiMenuItem onClick={handleMenuClose}>
+          <MuiMenuItem
+            onClick={() => {
+              setDetailsDialogOpen(true);
+              handleMenuClose();
+            }}
+          >
             <Visibility className="mr-2" fontSize="small" />
             View Details
           </MuiMenuItem>
@@ -1113,6 +1125,101 @@ function Users() {
           >
             {addUserLoading ? "Deleting..." : "Delete User"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Details Dialog */}
+      <Dialog
+        open={detailsDialogOpen}
+        onClose={closeUserDetails}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>User details</DialogTitle>
+        <DialogContent>
+          {selectedUser ? (
+            <Box>
+              <Box className="flex items-center gap-3 mb-4">
+                <Avatar sx={{ width: 56, height: 56 }}>
+                  {getInitials(selectedUser.name, selectedUser.last_name)}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" className="font-semibold">
+                    {selectedUser.name} {selectedUser.last_name}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {selectedUser.role} • {selectedUser.company}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Party ID
+                  </Typography>
+                  <Typography>{selectedUser.party_id || selectedUser._id}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Status
+                  </Typography>
+                  <Chip
+                    label={selectedUser.status}
+                    color={
+                      selectedUser.status === "Active"
+                        ? "success"
+                        : selectedUser.status === "Suspended"
+                        ? "error"
+                        : selectedUser.status === "Pending OTP"
+                        ? "warning"
+                        : "default"
+                    }
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Phone
+                  </Typography>
+                  <Typography>{formatPhoneNumber(selectedUser.phone_number)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Email
+                  </Typography>
+                  <Typography>{selectedUser.email || "Not provided"}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Verification
+                  </Typography>
+                  <Chip
+                    label={selectedUser.auth_verified ? "Verified" : "Unverified"}
+                    color={selectedUser.auth_verified ? "primary" : "default"}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Joined
+                  </Typography>
+                  <Typography>{formatDate(selectedUser.created_at)}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="caption" className="text-slate-500">
+                    Location
+                  </Typography>
+                  <Typography>{selectedUser.location || "Not specified"}</Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          ) : (
+            <Typography>No user details available.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeUserDetails}>Close</Button>
         </DialogActions>
       </Dialog>
 

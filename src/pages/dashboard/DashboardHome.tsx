@@ -3,8 +3,11 @@ import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
-import { FiUsers, FiTrendingUp, FiActivity, FiUserCheck, FiUserX, FiClock } from 'react-icons/fi';
+import { FiUsers, FiTrendingUp, FiActivity, FiUserCheck, FiUserX, FiHeadphones, FiAlertTriangle, FiArrowRight, FiMessageSquare } from 'react-icons/fi';
 import accountsApi from '../../services/accountsApi';
+import { customerSupportApi, SupportTicket } from '../../services/customerSupportApi';
+import { accountReportsApi, AccountReport } from '../../services/accountReportsApi';
+import PartyStatsPanel from '../../components/charts/PartyStatsPanel';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine
@@ -29,12 +32,18 @@ interface RecentAccount {
   date: string;
 }
 
-interface ActivityLog {
-  party_id: string;
-  action: string;
-  timestamp: string;
-  ipAddress?: string;
-}
+// ── Helpers (must be defined before component) ───────────────────────────
+const formatTime = (ts: string) => {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return d.toLocaleDateString();
+};
 
 // ── Simple SVG Pie Chart ───────────────────────────────────────────────────
 const PIE_COLORS = ['#3498db', '#e67e22', '#e74c3c'];
@@ -98,7 +107,8 @@ const DashboardHome: React.FC = () => {
 
   const [stats, setStats] = useState<AccountStats | null>(null);
   const [recent, setRecent] = useState<RecentAccount[]>([]);
-  const [activity, setActivity] = useState<ActivityLog[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [reports, setReports] = useState<AccountReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -123,31 +133,23 @@ const DashboardHome: React.FC = () => {
 
   const loadAll = async () => {
     setLoading(true);
-    const [statsRes, recentRes, activityRes] = await Promise.allSettled([
+    const [statsRes, recentRes, ticketsRes, reportsRes] = await Promise.allSettled([
       accountsApi.getStats(),
       accountsApi.getRecentAccounts(5),
-      accountsApi.getActivityLogs(1, 10),
+      customerSupportApi.getAllTickets(),
+      accountReportsApi.getAllReports(),
     ]);
 
     const errs: Record<string, string> = {};
 
-    if (statsRes.status === 'fulfilled') {
-      setStats(statsRes.value);
-    } else {
-      errs.stats = (statsRes.reason as any)?.response?.data?.message || 'Failed to load stats';
-    }
+    if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+    else errs.stats = (statsRes.reason as any)?.response?.data?.message || 'Failed to load stats';
 
-    if (recentRes.status === 'fulfilled') {
-      setRecent(recentRes.value);
-    } else {
-      errs.recent = (recentRes.reason as any)?.response?.data?.message || 'Failed to load recent users';
-    }
+    if (recentRes.status === 'fulfilled') setRecent(recentRes.value);
+    else errs.recent = (recentRes.reason as any)?.response?.data?.message || 'Failed to load recent users';
 
-    if (activityRes.status === 'fulfilled') {
-      setActivity(activityRes.value.data || []);
-    } else {
-      errs.activity = (activityRes.reason as any)?.response?.data?.message || 'Failed to load activity logs';
-    }
+    if (ticketsRes.status === 'fulfilled') setTickets(Array.isArray(ticketsRes.value) ? ticketsRes.value.slice(0, 5) : []);
+    if (reportsRes.status === 'fulfilled') setReports(Array.isArray(reportsRes.value) ? reportsRes.value.slice(0, 5) : []);
 
     setErrors(errs);
     setLoading(false);
@@ -263,12 +265,128 @@ const DashboardHome: React.FC = () => {
         )}
       </Panel>
 
-      {/* ── Middle Row: Recent Users + Pie Chart ── */}
+      {/* ── Party Profile Statistics ── */}
+      <PartyStatsPanel />
+
+      {/* ── Recent Support Tickets + Recent Account Reports ── */}
+      <TwoCol style={{ marginBottom: 24 }}>
+        {/* Recent Support Tickets */}
+        <FeedPanel>
+          <FeedHeader>
+            <FeedTitleRow>
+              <FeedIconWrap $color="#3498db"><FiHeadphones /></FeedIconWrap>
+              <div>
+                <FeedTitle>Recent Support Tickets</FeedTitle>
+                <FeedSub>{tickets.length > 0 ? `${tickets.length} latest tickets` : 'No tickets yet'}</FeedSub>
+              </div>
+            </FeedTitleRow>
+            <ViewAllBtn onClick={() => navigate('/dashboard/support')}>
+              View All <FiArrowRight size={13} />
+            </ViewAllBtn>
+          </FeedHeader>
+          {tickets.length === 0 ? (
+            <FeedEmpty>
+              <FiMessageSquare size={32} />
+              <span>No support tickets found</span>
+            </FeedEmpty>
+          ) : (
+            <FeedList>
+              {tickets.map(t => (
+                <FeedItem key={t._id}>
+                  <FeedItemLeft>
+                    <FeedItemDot $color={
+                      t.status === 'open' ? '#3498db' :
+                      t.status === 'in_progress' ? '#f39c12' :
+                      t.status === 'resolved' ? '#27ae60' : '#95a5a6'
+                    } />
+                    <FeedItemBody>
+                      <FeedItemTitle>{t.subject}</FeedItemTitle>
+                      <FeedItemMeta>
+                        <span>{t.category}</span>
+                        {t.partyId && <span>· {t.partyId}</span>}
+                      </FeedItemMeta>
+                    </FeedItemBody>
+                  </FeedItemLeft>
+                  <FeedItemRight>
+                    <TicketStatus $status={t.status}>
+                      {t.status.replace('_', ' ')}
+                    </TicketStatus>
+                    <FeedItemTime>{formatTime(t.createdAt)}</FeedItemTime>
+                  </FeedItemRight>
+                </FeedItem>
+              ))}
+            </FeedList>
+          )}
+        </FeedPanel>
+
+        {/* Recent Account Reports */}
+        <FeedPanel>
+          <FeedHeader>
+            <FeedTitleRow>
+              <FeedIconWrap $color="#e74c3c"><FiAlertTriangle /></FeedIconWrap>
+              <div>
+                <FeedTitle>Recent Account Reports</FeedTitle>
+                <FeedSub>{reports.length > 0 ? `${reports.length} latest reports` : 'No reports yet'}</FeedSub>
+              </div>
+            </FeedTitleRow>
+            <ViewAllBtn onClick={() => navigate('/dashboard/reports')}>
+              View All <FiArrowRight size={13} />
+            </ViewAllBtn>
+          </FeedHeader>
+          {reports.length === 0 ? (
+            <FeedEmpty>
+              <FiAlertTriangle size={32} />
+              <span>No account reports found</span>
+            </FeedEmpty>
+          ) : (
+            <FeedList>
+              {reports.map(r => (
+                <FeedItem key={r.id}>
+                  <FeedItemLeft>
+                    <FeedItemDot $color={
+                      r.status === 'pending' ? '#f39c12' :
+                      r.status === 'in_mediation' ? '#3498db' :
+                      r.status === 'resolved' ? '#27ae60' : '#95a5a6'
+                    } />
+                    <FeedItemBody>
+                      <FeedItemTitle>
+                        <ReportTypeBadge>{r.type.replace(/_/g, ' ')}</ReportTypeBadge>
+                      </FeedItemTitle>
+                      <FeedItemMeta>
+                        <span>Reported: {r.reportedPartyId}</span>
+                      </FeedItemMeta>
+                    </FeedItemBody>
+                  </FeedItemLeft>
+                  <FeedItemRight>
+                    <ReportStatus $status={r.status}>
+                      {r.status.replace(/_/g, ' ')}
+                    </ReportStatus>
+                    <FeedItemTime>{formatTime(r.createdAt)}</FeedItemTime>
+                  </FeedItemRight>
+                </FeedItem>
+              ))}
+            </FeedList>
+          )}
+        </FeedPanel>
+      </TwoCol>
+
+      {/* ── Recent Registrations + Role Distribution ── */}
       <TwoCol>
-        <Panel>
-          <PanelTitle><FiUsers /> Recent Registrations</PanelTitle>
+        <Panel style={{ marginBottom: 0 }}>
+          <FeedHeader style={{ padding: '0 0 16px', borderBottom: '1px solid #f1f5f9', marginBottom: 0 }}>
+            <FeedTitleRow>
+              <FeedIconWrap $color="#27ae60"><FiUsers /></FeedIconWrap>
+              <div>
+                <FeedTitle>Recent Registrations</FeedTitle>
+                <FeedSub>Last {recent.length} new accounts</FeedSub>
+              </div>
+            </FeedTitleRow>
+            <ViewAllBtn onClick={() => navigate('/dashboard/users')}>
+              View All <FiArrowRight size={13} />
+            </ViewAllBtn>
+          </FeedHeader>
           {errors.recent ? (
-            <ApiError>{errors.recent}</ApiError>
+            <ApiError style={{ marginTop: 12 }}>{errors.recent}</ApiError>
           ) : recent.length === 0 ? (
             <EmptyMsg>No recent registrations</EmptyMsg>
           ) : (
@@ -279,7 +397,6 @@ const DashboardHome: React.FC = () => {
                   <RTh>Role</RTh>
                   <RTh>Status</RTh>
                   <RTh>Joined</RTh>
-                  <RTh></RTh>
                 </tr>
               </thead>
               <tbody>
@@ -292,9 +409,6 @@ const DashboardHome: React.FC = () => {
                     <RTd><RolePill $role={u.role}>{u.role}</RolePill></RTd>
                     <RTd><StatusPill $active={u.status === 'active'}>{u.status.replace('_', ' ')}</StatusPill></RTd>
                     <RTd>{new Date(u.date).toLocaleDateString()}</RTd>
-                    <RTd>
-                      <ViewLink onClick={() => navigate(`/dashboard/users`)}>View</ViewLink>
-                    </RTd>
                   </RTr>
                 ))}
               </tbody>
@@ -302,8 +416,16 @@ const DashboardHome: React.FC = () => {
           )}
         </Panel>
 
-        <Panel>
-          <PanelTitle><FiUsers /> Role Distribution</PanelTitle>
+        <Panel style={{ marginBottom: 0 }}>
+          <FeedHeader style={{ padding: '0 0 16px', borderBottom: '1px solid #f1f5f9', marginBottom: 16 }}>
+            <FeedTitleRow>
+              <FeedIconWrap $color="#9b59b6"><FiUsers /></FeedIconWrap>
+              <div>
+                <FeedTitle>Role Distribution</FeedTitle>
+                <FeedSub>Accounts by role type</FeedSub>
+              </div>
+            </FeedTitleRow>
+          </FeedHeader>
           {errors.stats ? (
             <ApiError>{errors.stats}</ApiError>
           ) : (
@@ -314,57 +436,89 @@ const DashboardHome: React.FC = () => {
 
       {/* ── Activity Feed ── */}
       <Panel>
-        <PanelTitle><FiActivity /> Activity Feed</PanelTitle>
-        {errors.activity ? (
-          <ApiError>{errors.activity}</ApiError>
-        ) : activity.length === 0 ? (
-          <EmptyMsg>No recent activity</EmptyMsg>
+        <FeedHeader style={{ padding: '0 0 16px', borderBottom: '1px solid #f1f5f9', marginBottom: 20 }}>
+          <FeedTitleRow>
+            <FeedIconWrap $color="#1abc9c"><FiActivity /></FeedIconWrap>
+            <div>
+              <FeedTitle>Account Status Breakdown</FeedTitle>
+              <FeedSub>Live distribution of all account statuses</FeedSub>
+            </div>
+          </FeedTitleRow>
+        </FeedHeader>
+        {stats ? (
+          <StatusBreakdown>
+            {[
+              { label: 'Active',      value: stats.byStatus?.active ?? 0,      color: '#27ae60', bg: '#dcfce7' },
+              { label: 'Pending OTP', value: stats.byStatus?.pending_otp ?? 0,  color: '#f39c12', bg: '#fef3c7' },
+              { label: 'Inactive',    value: stats.byStatus?.inactive ?? 0,     color: '#95a5a6', bg: '#f1f5f9' },
+              { label: 'Suspended',   value: stats.byStatus?.suspended ?? 0,    color: '#e74c3c', bg: '#fee2e2' },
+            ].map(item => {
+              const pct = stats.total > 0 ? Math.round((item.value / stats.total) * 100) : 0;
+              return (
+                <StatusRow key={item.label}>
+                  <StatusRowLeft>
+                    <StatusDot style={{ background: item.color }} />
+                    <StatusRowLabel>{item.label}</StatusRowLabel>
+                  </StatusRowLeft>
+                  <StatusBarWrap>
+                    <StatusBarFill style={{ width: `${pct}%`, background: item.color }} />
+                  </StatusBarWrap>
+                  <StatusRowRight>
+                    <StatusCount style={{ color: item.color }}>{item.value.toLocaleString()}</StatusCount>
+                    <StatusPct>{pct}%</StatusPct>
+                  </StatusRowRight>
+                </StatusRow>
+              );
+            })}
+          </StatusBreakdown>
         ) : (
-          <ActivityFeed>
-            {activity.map((log, i) => (
-              <ActivityItem key={i}>
-                <ActivityDot $action={log.action} />
-                <ActivityBody>
-                  <ActivityAction>{formatAction(log.action)}</ActivityAction>
-                  <ActivityMeta>
-                    <span>{log.party_id}</span>
-                    {log.ipAddress && <span>· {log.ipAddress}</span>}
-                  </ActivityMeta>
-                </ActivityBody>
-                <ActivityTime>
-                  <FiClock size={11} />
-                  {formatTime(log.timestamp)}
-                </ActivityTime>
-              </ActivityItem>
-            ))}
-          </ActivityFeed>
+          <EmptyMsg>No status data available</EmptyMsg>
         )}
+      </Panel>
+
+      {/* ── Quick Actions ── */}
+      <Panel>
+        <PanelTitle><FiActivity /> Quick Actions</PanelTitle>
+        <QuickGrid>
+          <QuickBtn $color="#3498db" onClick={() => navigate('/dashboard/support')}>
+            <QuickIconWrap $color="#3498db">🎧</QuickIconWrap>
+            <QuickLabel>Support Tickets</QuickLabel>
+            <QuickSub>View & manage tickets</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#e74c3c" onClick={() => navigate('/dashboard/reports')}>
+            <QuickIconWrap $color="#e74c3c">🚨</QuickIconWrap>
+            <QuickLabel>Review Reports</QuickLabel>
+            <QuickSub>Flagged accounts</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#f39c12" onClick={() => navigate('/dashboard/otp')}>
+            <QuickIconWrap $color="#f39c12">🔐</QuickIconWrap>
+            <QuickLabel>OTP Management</QuickLabel>
+            <QuickSub>Verification settings</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#9b59b6" onClick={() => navigate('/dashboard/job-categories')}>
+            <QuickIconWrap $color="#9b59b6">📂</QuickIconWrap>
+            <QuickLabel>Job Categories</QuickLabel>
+            <QuickSub>Manage categories</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#1abc9c" onClick={() => navigate('/dashboard/audit-logs')}>
+            <QuickIconWrap $color="#1abc9c">📋</QuickIconWrap>
+            <QuickLabel>Audit Logs</QuickLabel>
+            <QuickSub>System activity</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#e67e22" onClick={() => navigate('/dashboard/commissions')}>
+            <QuickIconWrap $color="#e67e22">💰</QuickIconWrap>
+            <QuickLabel>Commissions</QuickLabel>
+            <QuickSub>Track payments</QuickSub>
+          </QuickBtn>
+          <QuickBtn $color="#2c3e50" onClick={() => navigate('/dashboard/system-health')}>
+            <QuickIconWrap $color="#2c3e50">🖥️</QuickIconWrap>
+            <QuickLabel>System Health</QuickLabel>
+            <QuickSub>Monitor services</QuickSub>
+          </QuickBtn>
+        </QuickGrid>
       </Panel>
     </Container>
   );
-};
-
-const formatAction = (action: string) => {
-  const map: Record<string, string> = {
-    login: '🔐 User Login',
-    logout: '🚪 User Logout',
-    profile_update: '✏️ Profile Updated',
-    password_change: '🔑 Password Changed',
-    account_created: '✅ Account Created',
-    otp_verified: '📱 OTP Verified',
-  };
-  return map[action] || `⚡ ${action.replace(/_/g, ' ')}`;
-};
-
-const formatTime = (ts: string) => {
-  const d = new Date(ts);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return d.toLocaleDateString();
 };
 
 // ── Growth Chart ───────────────────────────────────────────────────────────
@@ -533,20 +687,17 @@ const LegendItem = styled.div`display: flex; align-items: center; gap: 8px; font
 const LegendDot = styled.div`width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;`;
 const LegendVal = styled.span`color: #7f8c8d; margin-left: 4px;`;
 
-// Activity
-const ActivityFeed = styled.div`max-height: 320px; overflow-y: auto;
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
-`;
-const ActivityItem = styled.div`display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; &:last-child { border-bottom: none; }`;
-const ActivityDot = styled.div<{ $action: string }>`
-  width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
-  background: ${p => p.$action === 'login' ? '#27ae60' : p.$action === 'logout' ? '#e74c3c' : '#3498db'};
-`;
-const ActivityBody = styled.div`flex: 1;`;
-const ActivityAction = styled.div`font-size: 13px; font-weight: 500; color: #2c3e50;`;
-const ActivityMeta = styled.div`font-size: 11px; color: #95a5a6; margin-top: 2px; display: flex; gap: 6px;`;
-const ActivityTime = styled.div`font-size: 11px; color: #bdc3c7; display: flex; align-items: center; gap: 3px; white-space: nowrap;`;
+// Account Status Breakdown
+const StatusBreakdown = styled.div`display: flex; flex-direction: column; gap: 14px;`;
+const StatusRow = styled.div`display: flex; align-items: center; gap: 14px;`;
+const StatusRowLeft = styled.div`display: flex; align-items: center; gap: 8px; width: 110px; flex-shrink: 0;`;
+const StatusDot = styled.div`width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;`;
+const StatusRowLabel = styled.div`font-size: 13px; font-weight: 500; color: #475569;`;
+const StatusBarWrap = styled.div`flex: 1; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden;`;
+const StatusBarFill = styled.div`height: 100%; border-radius: 4px; transition: width 0.6s ease;`;
+const StatusRowRight = styled.div`display: flex; align-items: center; gap: 8px; width: 80px; justify-content: flex-end; flex-shrink: 0;`;
+const StatusCount = styled.div`font-size: 14px; font-weight: 700;`;
+const StatusPct = styled.div`font-size: 12px; color: #94a3b8; min-width: 32px; text-align: right;`;
 
 // Growth Chart
 const ChartWrap = styled.div`width: 100%;`;
@@ -558,3 +709,131 @@ const ChartDivider = styled.div`width: 1px; height: 36px; background: #e0e0e0;`;
 const TooltipBox = styled.div`background: #2c3e50; color: white; padding: 8px 12px; border-radius: 6px; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);`;
 const TooltipLabel = styled.div`font-weight: 600; margin-bottom: 2px;`;
 const TooltipValue = styled.div`color: #74b9ff;`;
+
+// Quick Actions
+const QuickGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+`;
+const QuickBtn = styled.button<{ $color: string }>`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  background: white;
+  border: 1.5px solid #f0f0f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: ${p => p.$color};
+    border-radius: 14px 14px 0 0;
+  }
+  &:hover {
+    border-color: ${p => p.$color}40;
+    box-shadow: 0 8px 24px ${p => p.$color}18;
+    transform: translateY(-3px);
+  }
+`;
+const QuickIconWrap = styled.div<{ $color: string }>`
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: ${p => p.$color}15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+`;
+const QuickLabel = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+`;
+const QuickSub = styled.div`
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: -6px;
+`;
+
+// Feed Panels
+const FeedPanel = styled.div`
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`;
+const FeedHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #f1f5f9;
+`;
+const FeedTitleRow = styled.div`display: flex; align-items: center; gap: 12px;`;
+const FeedIconWrap = styled.div<{ $color: string }>`
+  width: 38px; height: 38px; border-radius: 10px;
+  background: ${p => p.$color}15;
+  display: flex; align-items: center; justify-content: center;
+  color: ${p => p.$color}; font-size: 18px;
+`;
+const FeedTitle = styled.div`font-size: 15px; font-weight: 600; color: #1e293b;`;
+const FeedSub = styled.div`font-size: 12px; color: #94a3b8; margin-top: 1px;`;
+const ViewAllBtn = styled.button`
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 8px;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  font-size: 12px; font-weight: 500; color: #64748b;
+  cursor: pointer; transition: all 0.15s;
+  &:hover { background: #3498db; color: white; border-color: #3498db; }
+`;
+const FeedList = styled.div`padding: 8px 0;`;
+const FeedItem = styled.div`
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 22px; gap: 12px;
+  transition: background 0.15s;
+  &:hover { background: #f8fafc; }
+  &:not(:last-child) { border-bottom: 1px solid #f1f5f9; }
+`;
+const FeedItemLeft = styled.div`display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0;`;
+const FeedItemDot = styled.div<{ $color: string }>`
+  width: 8px; height: 8px; border-radius: 50%;
+  background: ${p => p.$color}; flex-shrink: 0; margin-top: 5px;
+`;
+const FeedItemBody = styled.div`flex: 1; min-width: 0;`;
+const FeedItemTitle = styled.div`font-size: 13px; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
+const FeedItemMeta = styled.div`font-size: 11px; color: #94a3b8; margin-top: 2px; display: flex; gap: 4px;`;
+const FeedItemRight = styled.div`display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;`;
+const FeedItemTime = styled.div`font-size: 11px; color: #cbd5e1;`;
+const FeedEmpty = styled.div`
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 40px 20px; color: #cbd5e1; font-size: 13px;
+`;
+const TicketStatus = styled.span<{ $status: string }>`
+  padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; text-transform: capitalize; white-space: nowrap;
+  background: ${{ open: '#dbeafe', in_progress: '#fef3c7', resolved: '#dcfce7', closed: '#f1f5f9' }[''] || '#f1f5f9'};
+  background: ${p => ({ open: '#dbeafe', in_progress: '#fef3c7', resolved: '#dcfce7', closed: '#f1f5f9' }[p.$status] || '#f1f5f9')};
+  color: ${p => ({ open: '#1d4ed8', in_progress: '#d97706', resolved: '#16a34a', closed: '#64748b' }[p.$status] || '#64748b')};
+`;
+const ReportTypeBadge = styled.span`
+  padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500;
+  background: #ede9fe; color: #5b21b6; text-transform: capitalize;
+`;
+const ReportStatus = styled.span<{ $status: string }>`
+  padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; text-transform: capitalize; white-space: nowrap;
+  background: ${{ pending: '#fef3c7', in_mediation: '#dbeafe', resolved: '#dcfce7', dismissed: '#f1f5f9' }[''] || '#f1f5f9'};
+  background: ${p => ({ pending: '#fef3c7', in_mediation: '#dbeafe', resolved: '#dcfce7', dismissed: '#f1f5f9' }[p.$status] || '#f1f5f9')};
+  color: ${p => ({ pending: '#d97706', in_mediation: '#1d4ed8', resolved: '#16a34a', dismissed: '#64748b' }[p.$status] || '#64748b')};
+`;

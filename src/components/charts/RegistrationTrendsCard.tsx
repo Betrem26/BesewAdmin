@@ -145,20 +145,21 @@ export default RegistrationTrendsCard;
 const Card = styled.div`
   background: white;
   border-radius: 16px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
-  flex: 1;
-  min-width: 260px;
-  position: relative;
-  overflow: visible;
+  padding: 22px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   border: 1px solid #f0f0f0;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 `;
 
 const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 `;
 
 const TitleRow = styled.div`
@@ -245,11 +246,11 @@ const ValueRow = styled.div`
 `;
 
 const BigNumber = styled.div`
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 800;
   color: #6366f1;
   line-height: 1;
-  letter-spacing: -2px;
+  letter-spacing: -1px;
 `;
 
 const GrowthBadge = styled.div<{ $positive: boolean }>`
@@ -267,9 +268,9 @@ const GrowthBadge = styled.div<{ $positive: boolean }>`
 `;
 
 const SubText = styled.p`
-  font-size: 13px;
+  font-size: 12px;
   color: #94a3b8;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
 `;
 
 // Mini stats row

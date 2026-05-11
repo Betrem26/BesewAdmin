@@ -3,11 +3,12 @@ import { store } from '../store/store';
 import { setToken } from '../store/features/userSlice';
 
 export const API_ENDPOINTS = {
-  account: import.meta.env.VITE_ACCOUNT_SERVICE || 'https://stage-account.besewonline.com',
+  account: import.meta.env.VITE_ACCOUNT_SERVICE
+    || (import.meta.env.DEV ? '/api/account' : 'https://stage-account.besewonline.com'),
   job: import.meta.env.VITE_JOB_SERVICE || 'https://job.besewonline.com',
   psychometric: import.meta.env.VITE_PSYCHOMETRIC_SERVICE || 'https://psychometric.besewonline.com',
   candidate: import.meta.env.VITE_CANDIDATE_SERVICE || 'https://candidate.besewonline.com',
-  party: import.meta.env.VITE_PARTY_SERVICE || 'https://party.besewonline.com',
+  party: import.meta.env.VITE_PARTY_SERVICE || 'https://stage-party.besewonline.com',
   commission: import.meta.env.VITE_COMMISSION_SERVICE || 'https://commission.besewonline.com',
   employee: import.meta.env.VITE_EMPLOYEE_SERVICE || 'https://employee.besewonline.com',
   notification: import.meta.env.VITE_NOTIFICATION_SERVICE || 'https://notify.besewonline.com',
