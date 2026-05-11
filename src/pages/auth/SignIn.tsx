@@ -303,20 +303,18 @@ const SignIn: React.FC = () => {
         localStorage.setItem('refreshToken', data.refresh_token || data.refreshToken);
       }
 
-      // Check if non-admin with pending OTP — redirect to verify
-      if (userData && (userData.status === 'pending_otp' || userData.status === 'pending_verification') && userData.role !== 'admin') {
-        console.log('Redirecting to OTP verification');
-        navigate("/verify-otp", {
-          state: { phonenumber: phone, userId: userData._id || userData.party_id }
-        });
+      // Block non-admin accounts from the admin dashboard
+      if (userData.role !== 'admin') {
+        setError(`Access denied. Your account has role "${userData.role}". This dashboard requires admin role.`);
+        dispatch({ type: 'user/logout' });
         setLoading(false);
         return;
       }
 
-      // Navigate to dashboard immediately — no setTimeout
+      // Navigate to dashboard immediately
       console.log('Navigating to dashboard');
-      setSuccess("Login successful!");
-      navigate("/dashboard", { replace: true });
+      setSuccess('Login successful!');
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       setError("An error occurred while signing in. Please try again.");
@@ -331,8 +329,8 @@ const SignIn: React.FC = () => {
         <LogoWrapper onClick={() => navigate("/")}>
           <img src={besewLogo} alt="BESEW logo" style={{ height: 48 }} />
         </LogoWrapper>
-        <Title>Sign In</Title>
-        <Subtitle>Administrative Portal Access</Subtitle>
+        <Title>Admin Sign In</Title>
+        <Subtitle>This portal is restricted to admin accounts only.</Subtitle>
 
         <form onSubmit={handleSignIn}>
           <InputGroup>

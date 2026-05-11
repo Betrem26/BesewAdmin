@@ -2,12 +2,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import styled from 'styled-components';
 import { FiUsers, FiSearch, FiDownload, FiEye, FiShield, FiUserX, FiTrash2, FiRefreshCw, FiPhone } from 'react-icons/fi';
 import accountsApi, { Account } from '../../services/accountsApi';
+import { accountReportsApi, AccountRating } from '../../services/accountReportsApi';
 import { toast } from 'react-toastify';
 import GrowthChart from '../../components/charts/GrowthChart';
 import RegistrationTrendsCard from '../../components/charts/RegistrationTrendsCard';
 
 const UserManagementEnhanced: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [ratings, setRatings] = useState<Record<string, AccountRating>>({});
   const [loading, setLoading] = useState(true);
   const [growth, setGrowth] = useState<{ today: number; thisWeek: number; thisMonth: number } | null>(null);
   const [phoneSearchResult, setPhoneSearchResult] = useState<Account | null>(null);
@@ -33,13 +35,29 @@ const UserManagementEnhanced: React.FC = () => {
         accountsApi.getAllAccounts(),
         accountsApi.getStats(),
       ]);
-      if (data.status === 'fulfilled') setAccounts(data.value);
+      if (data.status === 'fulfilled') {
+        setAccounts(data.value);
+        // Fetch trust ratings for all accounts
+        fetchRatings(data.value);
+      }
       else toast.error(data.reason?.response?.data?.message || 'Failed to load accounts');
       // Stats 403 is expected for non-admin — silently ignore
       if (stats.status === 'fulfilled') setGrowth(stats.value.growth);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Search by phone number using the real API endpoint
+  const fetchRatings = async (list: Account[]) => {
+    const results = await Promise.allSettled(
+      list.map(a => accountReportsApi.getAccountRating(a.party_id))
+    );
+    const map: Record<string, AccountRating> = {};
+    results.forEach((res, i) => {
+      if (res.status === 'fulfilled') map[list[i].party_id] = res.value;
+    });
+    setRatings(map);
   };
 
   // Search by phone number using the real API endpoint
@@ -268,7 +286,7 @@ const UserManagementEnhanced: React.FC = () => {
                 </Td>
               </Tr>
             ) : paginated.map(account => (
-              <Tr key={account.account_id}>
+              <Tr key={account.account_id} $alert={ratings[account.party_id]?.rating < 4}>
                 <Td>
                   <ProfileCell>
                     {account.avatar
@@ -281,6 +299,14 @@ const UserManagementEnhanced: React.FC = () => {
                         ? <ProfileEmail>{account.email}</ProfileEmail>
                         : <ProfileEmail style={{ color: '#bdc3c7' }}>No email · use phone search</ProfileEmail>
                       }
+                      {ratings[account.party_id] && (
+                        <TrustRow>
+                          {ratings[account.party_id].ethicalPremiumBadgeLevel === 'GOLD' && <TrustBadge $level="GOLD">🥇 Gold</TrustBadge>}
+                          {ratings[account.party_id].ethicalPremiumBadgeLevel === 'SILVER' && <TrustBadge $level="SILVER">🥈 Silver</TrustBadge>}
+                          {ratings[account.party_id].ethicalPremiumBadgeLevel === 'BRONZE' && <TrustBadge $level="BRONZE">🥉 Bronze</TrustBadge>}
+                          {ratings[account.party_id].rating < 4 && <LowTrustBadge>⚠ Low Trust {ratings[account.party_id].rating}/10</LowTrustBadge>}
+                        </TrustRow>
+                      )}
                     </div>
                   </ProfileCell>
                 </Td>
@@ -410,7 +436,7 @@ const SearchBar = styled.div`position: relative; svg { position: absolute; left:
 const TableCard = styled.div`background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden;`;
 const Table = styled.table`width: 100%; border-collapse: collapse;`;
 const Th = styled.th`padding: 16px; text-align: left; font-size: 13px; font-weight: 600; color: #2c3e50; border-bottom: 2px solid #ecf0f1; background: #f8f9fa;`;
-const Tr = styled.tr`border-bottom: 1px solid #ecf0f1; &:hover { background: #f8f9fa; }`;
+const Tr = styled.tr<{ $alert?: boolean }>`border-bottom: 1px solid #ecf0f1; background: ${p => p.$alert ? '#fff5f5' : 'white'}; &:hover { background: ${p => p.$alert ? '#fee2e2' : '#f8f9fa'}; }`;
 const Td = styled.td`padding: 16px; font-size: 14px; color: #2c3e50;`;
 const ProfileCell = styled.div`display: flex; align-items: center; gap: 10px;`;
 const Avatar = styled.img`width: 36px; height: 36px; border-radius: 50%; object-fit: cover;`;
@@ -435,3 +461,10 @@ const DetailRow = styled.div`display: flex; justify-content: space-between; padd
 const DetailLabel = styled.span`font-weight: 600; color: #7f8c8d; font-size: 14px;`;
 const DetailValue = styled.span`color: #2c3e50; font-size: 14px;`;
 const LoadingMessage = styled.div`text-align: center; padding: 60px; font-size: 16px; color: #7f8c8d;`;
+const TrustRow = styled.div`display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap;`;
+const TrustBadge = styled.span<{ $level: string }>`
+  padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600;
+  background: ${p => p.$level === 'GOLD' ? '#fef3c7' : p.$level === 'SILVER' ? '#f3f4f6' : '#fde8d8'};
+  color: ${p => p.$level === 'GOLD' ? '#92400e' : p.$level === 'SILVER' ? '#374151' : '#78350f'};
+`;
+const LowTrustBadge = styled.span`padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; background: #fee2e2; color: #dc2626;`;

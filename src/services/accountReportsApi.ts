@@ -1,22 +1,28 @@
-// Account Reports API Service
 import { accountApi, handleApiError } from './api';
 
 export interface AccountReport {
-  _id: string;
+  id: string;
   reporterPartyId: string;
   reportedPartyId: string;
-  type: 'fraud' | 'abuse' | 'spam' | 'inappropriate' | 'other';
+  type: string;
   description: string;
-  status: 'pending' | 'under_review' | 'resolved' | 'dismissed';
+  status: 'pending' | 'in_mediation' | 'in_progress' | 'resolved' | 'dismissed';
   createdAt: string;
   updatedAt: string;
   adminNotes?: string;
-  resolvedBy?: string;
-  resolvedAt?: string;
+  vacancyId?: string;
+  ethicalPremiumBadgeLevel?: string | null;
+}
+
+export interface CreateReportDto {
+  reportedPartyId: string;
+  type: string;
+  description: string;
+  vacancyId?: string;
 }
 
 export interface UpdateReportStatusDto {
-  status: 'pending' | 'under_review' | 'resolved' | 'dismissed';
+  status: 'pending' | 'in_mediation' | 'in_progress' | 'resolved' | 'dismissed';
   adminNotes?: string;
 }
 
@@ -24,14 +30,31 @@ export interface AccountRating {
   accountId: string;
   rating: number;
   explanation: string;
-  totalReports: number;
-  unresolvedReports: number;
+  ethicalPremiumBadgeLevel: 'GOLD' | 'SILVER' | 'BRONZE' | null;
 }
 
 export const accountReportsApi = {
-  /**
-   * Get all account reports (Admin only)
-   */
+  // POST /account-report
+  createReport: async (data: CreateReportDto): Promise<AccountReport> => {
+    try {
+      const response = await accountApi.post<AccountReport>('/account-report', data);
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // GET /account-report/my
+  getMyReports: async (): Promise<AccountReport[]> => {
+    try {
+      const response = await accountApi.get<AccountReport[]>('/account-report/my');
+      return response.data;
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // GET /account-report/admin (Admin only)
   getAllReports: async (): Promise<AccountReport[]> => {
     try {
       const response = await accountApi.get<AccountReport[]>('/account-report/admin');
@@ -41,9 +64,7 @@ export const accountReportsApi = {
     }
   },
 
-  /**
-   * Get specific account report by ID (Admin only)
-   */
+  // GET /account-report/admin/{id} (Admin only)
   getReport: async (id: string): Promise<AccountReport> => {
     try {
       const response = await accountApi.get<AccountReport>(`/account-report/admin/${id}`);
@@ -53,9 +74,16 @@ export const accountReportsApi = {
     }
   },
 
-  /**
-   * Update account report status (Admin only)
-   */
+  // DELETE /account-report/admin/{id} (Admin only)
+  deleteReport: async (id: string): Promise<void> => {
+    try {
+      await accountApi.delete(`/account-report/admin/${id}`);
+    } catch (error) {
+      throw new Error(handleApiError(error));
+    }
+  },
+
+  // PUT /account-report/admin/{id}/status (Admin only)
   updateReportStatus: async (id: string, data: UpdateReportStatusDto): Promise<AccountReport> => {
     try {
       const response = await accountApi.put<AccountReport>(
@@ -68,20 +96,7 @@ export const accountReportsApi = {
     }
   },
 
-  /**
-   * Delete account report (Admin only)
-   */
-  deleteReport: async (id: string): Promise<void> => {
-    try {
-      await accountApi.delete(`/account-report/admin/${id}`);
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
-  },
-
-  /**
-   * Get account trust rating
-   */
+  // GET /account-report/rating/{accountId}
   getAccountRating: async (accountId: string): Promise<AccountRating> => {
     try {
       const response = await accountApi.get<AccountRating>(`/account-report/rating/${accountId}`);
@@ -91,22 +106,16 @@ export const accountReportsApi = {
     }
   },
 
-  /**
-   * Get report statistics
-   */
+  // Computed stats from report list
   getReportStats: async (): Promise<{
-    total: number;
-    pending: number;
-    under_review: number;
-    resolved: number;
-    dismissed: number;
+    total: number; pending: number; in_mediation: number; resolved: number; dismissed: number;
   }> => {
     try {
       const reports = await accountReportsApi.getAllReports();
       return {
         total: reports.length,
         pending: reports.filter(r => r.status === 'pending').length,
-        under_review: reports.filter(r => r.status === 'under_review').length,
+        in_mediation: reports.filter(r => r.status === 'in_mediation').length,
         resolved: reports.filter(r => r.status === 'resolved').length,
         dismissed: reports.filter(r => r.status === 'dismissed').length,
       };
