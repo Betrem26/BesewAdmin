@@ -28,26 +28,22 @@ import JobTest from './pages/dashboard/JobTest';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Protected Route Component
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = useSelector((state: RootState) => state.user.accessToken);
+  const rehydrated = useSelector((state: any) => state._persist?.rehydrated ?? true);
 
-  if (!token) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (!rehydrated) return null; // Wait for persist to load
+  if (!token) return <Navigate to="/" replace />;
   return children;
 };
 
 function App() {
   return (
     <>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
-          {/* Public Routes */}
           <Route path="/" element={<SignIn />} />
 
-          {/* Protected Dashboard Routes */}
           <Route
             path="/dashboard"
             element={
@@ -80,7 +76,6 @@ function App() {
             <Route path="job-test" element={<JobTest />} />
           </Route>
 
-          {/* Catch all - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

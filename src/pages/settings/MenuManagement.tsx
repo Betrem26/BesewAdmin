@@ -21,13 +21,13 @@ const WorkerType = {
 };
 
 const SubscriptionTier = {
-  FREE: 'FREE',
-  TRIAL: 'TRIAL',
-  STANDARD: 'STANDARD',
-  GROWTH: 'GROWTH',
-  PROFESSIONAL: 'PROFESSIONAL',
-  PREMIUM: 'PREMIUM',
-  ENTERPRISE: 'ENTERPRISE'
+  FREE: 'free',
+  TRIAL: 'trial',
+  STANDARD: 'standard',
+  GROWTH: 'growth',
+  PROFESSIONAL: 'professional',
+  PREMIUM: 'premium',
+  ENTERPRISE: 'enterprise'
 };
 
 const Container = styled.div`

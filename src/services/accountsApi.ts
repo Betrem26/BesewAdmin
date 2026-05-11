@@ -1,216 +1,190 @@
-// Change from:
-// import api from './api';
-
-// To (use the accountApi named export):
 import { accountApi } from './api';
-import { AxiosResponse } from 'axios';
 
-// Types
+// Types matching the real API response from Swagger
+export interface PartyType {
+  id: number;
+  name: string;
+}
+
+export interface Subscription {
+  type: string;
+  period: string;
+  status: string;
+  expires_at: string;
+}
+
 export interface Account {
-  id: string;
-  partyId: string;
-  email: string;
-  phoneNumber: string;
-  firstName: string;
-  lastName: string;
-  role: 'user' | 'admin' | 'super_admin';
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastLogin?: string;
-  profilePicture?: string;
-  mfaEnabled?: boolean;
-}
-
-export interface CreateAccountDto {
-  email: string;
-  password: string;
-  phoneNumber: string;
-  firstName: string;
-  lastName: string;
-  role?: 'user' | 'admin';
-}
-
-export interface UpdateAccountDto {
-  firstName?: string;
-  lastName?: string;
+  account_id: string;
+  party_type: PartyType;
+  party_id: string;
+  profile_name: string;
+  name?: string;
+  last_name?: string;
   email?: string;
-  phoneNumber?: string;
-  profilePicture?: string;
-}
-
-export interface PhoneUpdateDto {
-  newPhoneNumber: string;
-  otp: string;
-}
-
-export interface PasswordUpdateDto {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
+  avatar?: string;
+  role: string;
+  date: string;
+  status: string;
+  country?: string;
+  agency_party_id?: string;
+  subscription?: Subscription;
 }
 
 export interface SecureAdminUpdateDto {
-  userId: string;
-  role?: 'user' | 'admin';
-  isActive?: boolean;
-  mfaToken: string;
+  target_party_id: string;
+  new_role?: string;
+  new_status?: string;
+  mfa_challenge_id: string;
+  reason?: string;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  timestamp: string;
+export interface AdminRoleChangeDto {
+  target_party_id: string;
+  new_role: string;
+  reason?: string;
+  mfa_challenge_id: string;
 }
 
-// Accounts API service - using accountApi from your api.ts
+export interface PhoneUpdateDto {
+  new_phonenumber: string;
+  current_password: string;
+  otp_code: string;
+}
+
+export interface PasswordUpdateDto {
+  new_password: string;
+  current_password: string;
+}
+
+export interface NationalIdValidationDto {
+  nationalId: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+}
+
 const accountsApi = {
-  // POST /accounts - Create a new account
-  createAccount: async (accountData: CreateAccountDto): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.post('/api/accounts', accountData);
-      return response.data;
-    } catch (error) {
-      console.error('Create account error:', error);
-      throw error;
-    }
-  },
-
   // GET /accounts - Get all accounts (Admin Only)
-  getAllAccounts: async (): Promise<ApiResponse<Account[]>> => {
-    try {
-      const response: AxiosResponse = await accountApi.get('/api/accounts');
-      return response.data;
-    } catch (error) {
-      console.error('Get all accounts error:', error);
-      throw error;
-    }
+  getAllAccounts: async (): Promise<Account[]> => {
+    const response = await accountApi.get('/accounts');
+    return response.data;
   },
 
   // GET /accounts/{partyId} - Get account by party ID
-  getAccountByPartyId: async (partyId: string): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.get(`/accounts/${partyId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Get account by party ID error:', error);
-      throw error;
-    }
+  getAccountByPartyId: async (partyId: string): Promise<Account> => {
+    const response = await accountApi.get(`/accounts/${partyId}`);
+    return response.data;
   },
 
   // DELETE /accounts/{partyId} - Delete any account (admin)
-  deleteAccount: async (partyId: string): Promise<ApiResponse<null>> => {
-    try {
-      const response: AxiosResponse = await accountApi.delete(`/accounts/${partyId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Delete account error:', error);
-      throw error;
-    }
+  deleteAccount: async (partyId: string): Promise<void> => {
+    await accountApi.delete(`/accounts/${partyId}`);
   },
 
   // GET /accounts/by-phonenumber/{phonenumber} - Get account by phone number (Admin Only)
-  getAccountByPhoneNumber: async (phoneNumber: string): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.get(`/accounts/by-phonenumber/${phoneNumber}`);
-      return response.data;
-    } catch (error) {
-      console.error('Get account by phone number error:', error);
-      throw error;
-    }
+  getAccountByPhoneNumber: async (phoneNumber: string): Promise<Account> => {
+    const response = await accountApi.get(`/accounts/by-phonenumber/${encodeURIComponent(phoneNumber)}`);
+    return response.data;
   },
 
-  // PUT /accounts/{id} - Update account with mass assignment protection
-  updateAccount: async (id: string, accountData: UpdateAccountDto): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put(`/accounts/${id}`, accountData);
-      return response.data;
-    } catch (error) {
-      console.error('Update account error:', error);
-      throw error;
-    }
+  // PUT /accounts/{id} - Update account
+  updateAccount: async (id: string, accountData: Partial<Account>): Promise<Account> => {
+    const response = await accountApi.put(`/accounts/${id}`, accountData);
+    return response.data;
   },
 
   // DELETE /accounts/me - Delete my account
-  deleteMyAccount: async (): Promise<ApiResponse<null>> => {
-    try {
-      const response: AxiosResponse = await accountApi.delete('/api/accounts/me');
-      return response.data;
-    } catch (error) {
-      console.error('Delete my account error:', error);
-      throw error;
-    }
+  deleteMyAccount: async (): Promise<void> => {
+    await accountApi.delete('/accounts/me');
   },
 
   // PUT /accounts/admin/promote/{partyId} - Promote user to admin (Super Admin Only)
-  promoteToAdmin: async (partyId: string): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put(`/accounts/admin/promote/${partyId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Promote to admin error:', error);
-      throw error;
-    }
+  promoteToAdmin: async (partyId: string): Promise<Account> => {
+    const response = await accountApi.put(`/accounts/admin/promote/${partyId}`);
+    return response.data;
   },
 
   // PUT /accounts/admin/demote/{partyId} - Demote admin to user (Super Admin Only)
-  demoteToUser: async (partyId: string): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put(`/accounts/admin/demote/${partyId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Demote to user error:', error);
-      throw error;
-    }
+  demoteToUser: async (partyId: string): Promise<Account> => {
+    const response = await accountApi.put(`/accounts/admin/demote/${partyId}`);
+    return response.data;
   },
 
   // PUT /accounts/admin/secure-update - Secure admin account update (MFA Required)
-  secureAdminUpdate: async (updateData: SecureAdminUpdateDto): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put('/api/accounts/admin/secure-update', updateData);
-      return response.data;
-    } catch (error) {
-      console.error('Secure admin update error:', error);
-      throw error;
-    }
+  secureAdminUpdate: async (updateData: SecureAdminUpdateDto): Promise<any> => {
+    const response = await accountApi.put('/accounts/admin/secure-update', updateData);
+    return response.data;
   },
 
   // PUT /accounts/secure/phone-update - Secure phone number update (OTP Required)
-  securePhoneUpdate: async (phoneData: PhoneUpdateDto): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put('/api/accounts/secure/phone-update', phoneData);
-      return response.data;
-    } catch (error) {
-      console.error('Secure phone update error:', error);
-      throw error;
-    }
+  securePhoneUpdate: async (phoneData: PhoneUpdateDto): Promise<any> => {
+    const response = await accountApi.put('/accounts/secure/phone-update', phoneData);
+    return response.data;
   },
 
-  // PUT /accounts/secure/password-update - Secure password update (Current Password Required)
-  securePasswordUpdate: async (passwordData: PasswordUpdateDto): Promise<ApiResponse<null>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put('/api/accounts/secure/password-update', passwordData);
-      return response.data;
-    } catch (error) {
-      console.error('Secure password update error:', error);
-      throw error;
-    }
+  // PUT /accounts/secure/password-update - Secure password update
+  securePasswordUpdate: async (passwordData: PasswordUpdateDto): Promise<any> => {
+    const response = await accountApi.put('/accounts/secure/password-update', passwordData);
+    return response.data;
   },
 
   // PUT /accounts/admin/role-change - Admin role change (MFA Required)
-  adminRoleChange: async (partyId: string, newRole: 'user' | 'admin', mfaToken: string): Promise<ApiResponse<Account>> => {
-    try {
-      const response: AxiosResponse = await accountApi.put('/api/accounts/admin/role-change', {
-        partyId,
-        newRole,
-        mfaToken
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Admin role change error:', error);
-      throw error;
-    }
+  adminRoleChange: async (data: AdminRoleChangeDto): Promise<any> => {
+    const response = await accountApi.put('/accounts/admin/role-change', data);
+    return response.data;
+  },
+
+  // GET /accounts/employee/{phonenumber} - Get employee accounts by phone
+  getEmployeeAccountsByPhone: async (phoneNumber: string): Promise<Account[]> => {
+    const response = await accountApi.get(`/accounts/employee/${encodeURIComponent(phoneNumber)}`);
+    return response.data;
+  },
+
+  // GET /accounts/agency/{agencyPartyId} - Get all employee accounts for an agency
+  getEmployeeAccountsByAgency: async (agencyPartyId: string): Promise<Account[]> => {
+    const response = await accountApi.get(`/accounts/agency/${agencyPartyId}`);
+    return response.data;
+  },
+
+  // GET /accounts/stats - Admin only
+  getStats: async (): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    byRole: { user: number; agency: number; admin: number };
+    byStatus: { active: number; pending_otp: number; inactive: number; suspended: number };
+    growth: { today: number; thisWeek: number; thisMonth: number };
+    lastUpdated: string;
+  }> => {
+    const response = await accountApi.get('/accounts/stats');
+    return response.data;
+  },
+
+  // GET /accounts/recent?limit=N - Admin only
+  getRecentAccounts: async (limit = 5): Promise<Array<{
+    party_id: string;
+    profile_name: string;
+    role: string;
+    status: string;
+    date: string;
+  }>> => {
+    const response = await accountApi.get(`/accounts/recent?limit=${limit}`);
+    return response.data;
+  },
+
+  // GET /accounts/activity-logs - Admin only
+  getActivityLogs: async (page = 1, limit = 10): Promise<{
+    data: Array<{ party_id: string; action: string; timestamp: string; ipAddress?: string; userAgent?: string }>;
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }> => {
+    const response = await accountApi.get(`/accounts/activity-logs?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  // POST /accounts/validate-national-id
+  validateNationalId: async (data: NationalIdValidationDto): Promise<any> => {
+    const response = await accountApi.post('/accounts/validate-national-id', data);
+    return response.data;
   },
 };
 

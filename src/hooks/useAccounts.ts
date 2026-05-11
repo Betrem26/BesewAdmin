@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import accountsApi, { Account, CreateAccountDto, UpdateAccountDto } from '../services/accountsApi';
+import accountsApi, { Account } from '../services/accountsApi';
 
 export const useAccounts = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -11,10 +11,10 @@ export const useAccounts = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await accountsApi.getAllAccounts();
-      setAccounts(response.data);
+      const data = await accountsApi.getAllAccounts();
+      setAccounts(data);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch accounts');
+      setError(err.response?.data?.message || err.message || 'Failed to fetch accounts');
     } finally {
       setLoading(false);
     }
@@ -24,41 +24,11 @@ export const useAccounts = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await accountsApi.getAccountByPartyId(partyId);
-      setCurrentAccount(response.data);
-      return response.data;
+      const data = await accountsApi.getAccountByPartyId(partyId);
+      setCurrentAccount(data);
+      return data;
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch account');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createAccount = async (accountData: CreateAccountDto) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await accountsApi.createAccount(accountData);
-      setAccounts(prev => [...prev, response.data]);
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to create account');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateAccount = async (id: string, accountData: UpdateAccountDto) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await accountsApi.updateAccount(id, accountData);
-      setAccounts(prev => prev.map(acc => acc.id === id ? response.data : acc));
-      return response.data;
-    } catch (err: any) {
-      setError(err.message || 'Failed to update account');
-      throw err;
+      setError(err.response?.data?.message || err.message || 'Failed to fetch account');
     } finally {
       setLoading(false);
     }
@@ -69,9 +39,9 @@ export const useAccounts = () => {
     setError(null);
     try {
       await accountsApi.deleteAccount(partyId);
-      setAccounts(prev => prev.filter(acc => acc.partyId !== partyId));
+      setAccounts(prev => prev.filter(acc => acc.party_id !== partyId));
     } catch (err: any) {
-      setError(err.message || 'Failed to delete account');
+      setError(err.response?.data?.message || err.message || 'Failed to delete account');
       throw err;
     } finally {
       setLoading(false);
@@ -82,11 +52,11 @@ export const useAccounts = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await accountsApi.promoteToAdmin(partyId);
-      setAccounts(prev => prev.map(acc => acc.partyId === partyId ? response.data : acc));
-      return response.data;
+      const updated = await accountsApi.promoteToAdmin(partyId);
+      setAccounts(prev => prev.map(acc => acc.party_id === partyId ? { ...acc, ...updated } : acc));
+      return updated;
     } catch (err: any) {
-      setError(err.message || 'Failed to promote user');
+      setError(err.response?.data?.message || err.message || 'Failed to promote user');
       throw err;
     } finally {
       setLoading(false);
@@ -97,11 +67,11 @@ export const useAccounts = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await accountsApi.demoteToUser(partyId);
-      setAccounts(prev => prev.map(acc => acc.partyId === partyId ? response.data : acc));
-      return response.data;
+      const updated = await accountsApi.demoteToUser(partyId);
+      setAccounts(prev => prev.map(acc => acc.party_id === partyId ? { ...acc, ...updated } : acc));
+      return updated;
     } catch (err: any) {
-      setError(err.message || 'Failed to demote admin');
+      setError(err.response?.data?.message || err.message || 'Failed to demote admin');
       throw err;
     } finally {
       setLoading(false);
@@ -117,8 +87,6 @@ export const useAccounts = () => {
     error,
     fetchAllAccounts,
     fetchAccountByPartyId,
-    createAccount,
-    updateAccount,
     deleteAccount,
     promoteToAdmin,
     demoteToUser,

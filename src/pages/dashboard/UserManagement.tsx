@@ -1,109 +1,75 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
-import { FiSearch, FiTrash2, FiUserCheck, FiUserX } from 'react-icons/fi';
-
-interface User {
-  _id: string;
-  phone_number: string;
-  role: string;
-  isActive: boolean;
-  isOtpVerified: boolean;
-  partyId?: string;
-  createdAt: string;
-  lastLogin?: string;
-}
+import { FiSearch, FiTrash2, FiUserCheck, FiUserX, FiShield } from 'react-icons/fi';
+import accountsApi, { Account } from '../../services/accountsApi';
 
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
-    fetchUsers();
+    fetchAccounts();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchAccounts = async () => {
     setLoading(true);
     try {
-      // TODO: Implement actual API call when endpoint is available
-      // const response = await accountApi.get('/admin/users');
-      // setUsers(response.data);
-      
-      // Mock data for now
-      const mockUsers: User[] = [
-        {
-          _id: '1',
-          phone_number: '+251911234567',
-          role: 'admin',
-          isActive: true,
-          isOtpVerified: true,
-          partyId: 'ETH26-1-SA-001',
-          createdAt: '2024-01-15T10:00:00Z',
-          lastLogin: '2024-01-27T08:30:00Z'
-        },
-        {
-          _id: '2',
-          phone_number: '+251922345678',
-          role: 'user',
-          isActive: true,
-          isOtpVerified: true,
-          partyId: 'ETH26-2-CA-002',
-          createdAt: '2024-01-20T14:20:00Z',
-          lastLogin: '2024-01-26T16:45:00Z'
-        },
-        {
-          _id: '3',
-          phone_number: '+251933456789',
-          role: 'agency',
-          isActive: false,
-          isOtpVerified: false,
-          createdAt: '2024-01-25T09:15:00Z'
-        }
-      ];
-      setUsers(mockUsers);
-    } catch (error) {
-      toast.error('Failed to fetch users');
+      const data = await accountsApi.getAllAccounts();
+      setAccounts(data);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to fetch accounts');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (userId: string, currentStatus: boolean) => {
+  const handleDelete = async (partyId: string) => {
+    if (!window.confirm('Are you sure you want to delete this account?')) return;
     try {
-      // TODO: Implement actual API call
-      // await accountApi.put(`/admin/users/${userId}/status`, { isActive: !currentStatus });
-      setUsers(users.map(u => u._id === userId ? { ...u, isActive: !currentStatus } : u));
-      toast.success(`User ${!currentStatus ? 'activated' : 'deactivated'}`);
-    } catch (error) {
-      toast.error('Failed to update user status');
+      await accountsApi.deleteAccount(partyId);
+      setAccounts(prev => prev.filter(a => a.party_id !== partyId));
+      toast.success('Account deleted successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete account');
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
-    
+  const handlePromote = async (partyId: string) => {
     try {
-      // TODO: Implement actual API call
-      // await accountApi.delete(`/admin/users/${userId}`);
-      setUsers(users.filter(u => u._id !== userId));
-      toast.success('User deleted successfully');
-    } catch (error) {
-      toast.error('Failed to delete user');
+      await accountsApi.promoteToAdmin(partyId);
+      setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'admin' } : a));
+      toast.success('User promoted to admin');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to promote user');
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.phone_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.partyId?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'active' && user.isActive) ||
-                         (filterStatus === 'inactive' && !user.isActive);
+  const handleDemote = async (partyId: string) => {
+    try {
+      await accountsApi.demoteToUser(partyId);
+      setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'user' } : a));
+      toast.success('Admin demoted to user');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to demote admin');
+    }
+  };
+
+  const filtered = accounts.filter(a => {
+    const matchesSearch =
+      a.profile_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.party_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (a.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = filterRole === 'all' || a.role === filterRole;
+    const matchesStatus = filterStatus === 'all' || a.status === filterStatus;
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  const activeCount = accounts.filter(a => a.status === 'active').length;
+  const pendingCount = accounts.filter(a => a.status === 'pending_otp').length;
 
   return (
     <Container>
@@ -111,16 +77,20 @@ const UserManagement: React.FC = () => {
         <Title>User Management</Title>
         <Stats>
           <StatCard>
-            <StatValue>{users.length}</StatValue>
-            <StatLabel>Total Users</StatLabel>
+            <StatValue>{accounts.length}</StatValue>
+            <StatLabel>Total Accounts</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue>{users.filter(u => u.isActive).length}</StatValue>
+            <StatValue>{activeCount}</StatValue>
             <StatLabel>Active</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue>{users.filter(u => !u.isActive).length}</StatValue>
-            <StatLabel>Inactive</StatLabel>
+            <StatValue>{pendingCount}</StatValue>
+            <StatLabel>Pending OTP</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue>{accounts.filter(a => a.role === 'admin').length}</StatValue>
+            <StatLabel>Admins</StatLabel>
           </StatCard>
         </Stats>
       </Header>
@@ -130,74 +100,83 @@ const UserManagement: React.FC = () => {
           <FiSearch />
           <SearchInput
             type="text"
-            placeholder="Search by phone number or party ID..."
+            placeholder="Search by name, party ID or email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </SearchBox>
         <FilterGroup>
-          <Select value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
+          <Select value={filterRole} onChange={e => setFilterRole(e.target.value)}>
             <option value="all">All Roles</option>
             <option value="user">User</option>
             <option value="admin">Admin</option>
             <option value="agency">Agency</option>
-            <option value="employee">Employee</option>
           </Select>
-          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+          <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="all">All Status</option>
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="pending_otp">Pending OTP</option>
           </Select>
         </FilterGroup>
       </FilterSection>
 
-      {loading && <LoadingText>Loading users...</LoadingText>}
-      {!loading && filteredUsers.length === 0 && <EmptyState>No users found</EmptyState>}
-      {!loading && filteredUsers.length > 0 && (
+      {loading && <LoadingText>Loading accounts...</LoadingText>}
+      {!loading && filtered.length === 0 && <EmptyState>No accounts found</EmptyState>}
+      {!loading && filtered.length > 0 && (
         <Table>
           <thead>
             <tr>
-              <Th>Phone Number</Th>
+              <Th>Profile</Th>
               <Th>Party ID</Th>
+              <Th>Party Type</Th>
               <Th>Role</Th>
               <Th>Status</Th>
-              <Th>OTP Verified</Th>
-              <Th>Created</Th>
-              <Th>Last Login</Th>
+              <Th>Subscription</Th>
+              <Th>Joined</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user._id}>
-                <Td>{user.phone_number}</Td>
-                <Td>{user.partyId || '-'}</Td>
-                <Td><RoleBadge role={user.role}>{user.role}</RoleBadge></Td>
+            {filtered.map(account => (
+              <tr key={account.account_id}>
                 <Td>
-                  <StatusBadge status={user.isActive ? 'active' : 'inactive'}>
-                    {user.isActive ? 'Active' : 'Inactive'}
-                  </StatusBadge>
+                  <ProfileCell>
+                    {account.avatar
+                      ? <Avatar src={account.avatar} alt={account.profile_name} />
+                      : <AvatarPlaceholder>{account.profile_name.charAt(0).toUpperCase()}</AvatarPlaceholder>
+                    }
+                    <ProfileInfo>
+                      <ProfileName>{account.profile_name}</ProfileName>
+                      {account.email && <ProfileEmail>{account.email}</ProfileEmail>}
+                    </ProfileInfo>
+                  </ProfileCell>
                 </Td>
+                <Td>{account.party_id}</Td>
+                <Td>{account.party_type.name}</Td>
+                <Td><RoleBadge role={account.role}>{account.role}</RoleBadge></Td>
+                <Td><StatusBadge status={account.status}>{account.status.replace('_', ' ')}</StatusBadge></Td>
                 <Td>
-                  {user.isOtpVerified ? (
-                    <VerifiedIcon><FiUserCheck /> Verified</VerifiedIcon>
-                  ) : (
-                    <UnverifiedIcon><FiUserX /> Not Verified</UnverifiedIcon>
-                  )}
+                  {account.subscription
+                    ? <SubBadge>{account.subscription.type}</SubBadge>
+                    : '-'
+                  }
                 </Td>
-                <Td>{new Date(user.createdAt).toLocaleDateString()}</Td>
-                <Td>{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '-'}</Td>
+                <Td>{new Date(account.date).toLocaleDateString()}</Td>
                 <Td>
                   <ActionButtons>
-                    <ActionButton
-                      onClick={() => handleToggleStatus(user._id, user.isActive)}
-                      title={user.isActive ? 'Deactivate' : 'Activate'}
-                    >
-                      {user.isActive ? <FiUserX /> : <FiUserCheck />}
-                    </ActionButton>
-                    <ActionButton onClick={() => handleDeleteUser(user._id)} title="Delete">
+                    {account.role === 'user' && (
+                      <ActionButton title="Promote to Admin" onClick={() => handlePromote(account.party_id)}>
+                        <FiShield />
+                      </ActionButton>
+                    )}
+                    {account.role === 'admin' && (
+                      <ActionButton title="Demote to User" onClick={() => handleDemote(account.party_id)}>
+                        <FiUserX />
+                      </ActionButton>
+                    )}
+                    <DeleteButton title="Delete Account" onClick={() => handleDelete(account.party_id)}>
                       <FiTrash2 />
-                    </ActionButton>
+                    </DeleteButton>
                   </ActionButtons>
                 </Td>
               </tr>
@@ -225,12 +204,18 @@ const FilterGroup = styled.div`display: flex; gap: 12px;`;
 const Select = styled.select`padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; cursor: pointer;`;
 const LoadingText = styled.p`text-align: center; color: #718096; padding: 40px;`;
 const EmptyState = styled.p`text-align: center; color: #718096; padding: 40px;`;
-const Table = styled.table`width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden;`;
+const Table = styled.table`width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);`;
 const Th = styled.th`text-align: left; padding: 12px; background: #f7fafc; color: #4a5568; font-weight: 600; font-size: 14px; border-bottom: 2px solid #e2e8f0;`;
 const Td = styled.td`padding: 12px; border-bottom: 1px solid #e2e8f0; color: #2d3748; font-size: 14px;`;
+const ProfileCell = styled.div`display: flex; align-items: center; gap: 10px;`;
+const Avatar = styled.img`width: 36px; height: 36px; border-radius: 50%; object-fit: cover;`;
+const AvatarPlaceholder = styled.div`width: 36px; height: 36px; border-radius: 50%; background: #3182ce; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0;`;
+const ProfileInfo = styled.div`display: flex; flex-direction: column;`;
+const ProfileName = styled.span`font-weight: 500; font-size: 14px;`;
+const ProfileEmail = styled.span`font-size: 12px; color: #718096;`;
 const RoleBadge = styled.span<{ role: string }>`padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${p => p.role === 'admin' ? '#fed7d7' : p.role === 'agency' ? '#feebc8' : '#c6f6d5'}; color: ${p => p.role === 'admin' ? '#742a2a' : p.role === 'agency' ? '#7c2d12' : '#22543d'};`;
-const StatusBadge = styled.span<{ status: string }>`padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${p => p.status === 'active' ? '#c6f6d5' : '#fed7d7'}; color: ${p => p.status === 'active' ? '#22543d' : '#742a2a'};`;
-const VerifiedIcon = styled.span`display: flex; align-items: center; gap: 4px; color: #38a169; font-size: 13px;`;
-const UnverifiedIcon = styled.span`display: flex; align-items: center; gap: 4px; color: #e53e3e; font-size: 13px;`;
+const StatusBadge = styled.span<{ status: string }>`padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${p => p.status === 'active' ? '#c6f6d5' : '#fefcbf'}; color: ${p => p.status === 'active' ? '#22543d' : '#744210'}; text-transform: capitalize;`;
+const SubBadge = styled.span`padding: 4px 8px; border-radius: 4px; font-size: 12px; background: #ebf8ff; color: #2b6cb0; text-transform: capitalize;`;
 const ActionButtons = styled.div`display: flex; gap: 8px;`;
 const ActionButton = styled.button`padding: 6px; background: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; &:hover { background: #2c5282; }`;
+const DeleteButton = styled.button`padding: 6px; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; &:hover { background: #c53030; }`;
