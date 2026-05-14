@@ -32,6 +32,10 @@ env:
   CONTAINER_PORT: "6134"
   DOMAIN: "admin.besewonline.com"
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
