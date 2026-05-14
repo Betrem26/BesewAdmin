@@ -16,6 +16,7 @@ import { PsychometricAnalytics } from './pages/dashboard/PsychometricAnalytics';
 import UserManagement from './pages/dashboard/UserManagement';
 import UserManagementEnhanced from './pages/dashboard/UserManagementEnhanced';
 import JobMonitoring from './pages/dashboard/JobMonitoring';
+import CompanyManagement from './pages/dashboard/CompanyManagement';
 import StartupManagement from './pages/dashboard/StartupManagement';
 import CandidateManagement from './pages/dashboard/CandidateManagement';
 import CommissionTracking from './pages/dashboard/CommissionTracking';
@@ -25,6 +26,7 @@ import RoleManagement from './pages/RoleManagement';
 import Settings from './pages/settings/Settings';
 import AccountsTest from './pages/accounts/AcccountsTest';
 import JobTest from './pages/dashboard/JobTest';
+import JobTemplates from './pages/dashboard/JobTemplates';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -60,11 +62,14 @@ function App() {
             <Route path="reports" element={<AccountReports />} />
             <Route path="otp" element={<OTPManagement />} />
             <Route path="job-categories" element={<JobCategories />} />
+            <Route path="job-templates" element={<JobTemplates />} />
             <Route path="psychometric" element={<Psychometric />} />
             <Route path="psychometric-analytics" element={<PsychometricAnalytics />} />
             <Route path="users" element={<UserManagementEnhanced />} />
             <Route path="users/basic" element={<UserManagement />} />
             <Route path="jobs" element={<JobMonitoring />} />
+            <Route path="company-management" element={<CompanyManagement />} />
+            <Route path="companies" element={<CompanyManagement />} />
             <Route path="startups" element={<StartupManagement />} />
             <Route path="candidates" element={<CandidateManagement />} />
             <Route path="commissions" element={<CommissionTracking />} />

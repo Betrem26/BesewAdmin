@@ -72,7 +72,7 @@ export const jobMonitoringApi = {
       const response = await jobApi.get('/posts/stats');
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      throw error;
     }
   },
 
@@ -80,16 +80,6 @@ export const jobMonitoringApi = {
   getRecentJobs: async (limit: number = 10) => {
     try {
       const response = await jobApi.get(`/posts/recent?limit=${limit}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
-  },
-
-  // Get job application statistics
-  getApplicationStats: async () => {
-    try {
-      const response = await jobApi.get('/applications/stats');
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -122,7 +112,7 @@ export const jobMonitoringApi = {
       const response = await jobApi.get('/posts/agency/stats');
       return response.data;
     } catch (error) {
-      throw new Error(handleApiError(error));
+      throw error;
     }
   },
 
@@ -133,6 +123,17 @@ export const jobMonitoringApi = {
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
+    }
+  },
+
+  // Get global application statistics (Admin only)
+  getApplicationStats: async () => {
+    try {
+      const response = await jobApi.get('/applications/stats');
+      return response.data;
+    } catch (error) {
+      // Preserve the original error so callers can inspect response.status
+      throw error;
     }
   },
 };

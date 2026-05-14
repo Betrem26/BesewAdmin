@@ -2,95 +2,158 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
   FiBriefcase,
-  FiSearch,
   FiDownload,
   FiEye,
   FiCheckCircle,
   FiXCircle,
   FiRefreshCw,
   FiTrendingUp,
-  FiUsers
+  FiUsers,
+  FiAlertCircle,
+  FiFilter,
+  FiX,
+  FiClock,
+  FiMapPin,
+  FiDollarSign,
+  FiBarChart2
 } from 'react-icons/fi';
 import { jobApi, handleApiError } from '../../services/api';
 import monitoringApi from '../../services/monitoringApi';
+import JobMarketOverview from '../../components/charts/JobMarketOverview';
+import { useJobServiceAuth } from '../../hooks/useJobServiceAuth';
 
 const Container = styled.div`
-  max-width: 1600px;
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 0;
 `;
 
 const PageHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 32px;
+  padding: 0 24px;
+  flex-wrap: wrap;
+  gap: 16px;
 `;
 
 const PageTitle = styled.h1`
-  font-size: 28px;
-  font-weight: 600;
-  color: #2c3e50;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a202c;
   display: flex;
   align-items: center;
   gap: 12px;
+  margin: 0;
+  
+  svg {
+    color: #3498db;
+  }
 `;
 
 const HeaderActions = styled.div`
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 `;
 
-const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
-  background: ${props => props.variant === 'primary' ? '#3498db' : '#ecf0f1'};
-  color: ${props => props.variant === 'primary' ? 'white' : '#2c3e50'};
+const Button = styled.button<{ variant?: 'primary' | 'secondary' | 'danger' }>`
+  background: ${props => {
+    switch (props.variant) {
+      case 'primary': return '#3498db';
+      case 'danger': return '#e74c3c';
+      default: return '#ecf0f1';
+    }
+  }};
+  color: ${props => props.variant === 'secondary' ? '#2c3e50' : 'white'};
   border: none;
-  padding: 10px 20px;
+  padding: 10px 18px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 
-  &:hover {
-    background: ${props => props.variant === 'primary' ? '#2980b9' : '#d5dbdb'};
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    background: ${props => {
+      switch (props.variant) {
+        case 'primary': return '#2980b9';
+        case 'danger': return '#c0392b';
+        default: return '#d5dbdb';
+      }
+    }};
   }
 
   &:disabled {
     background: #95a5a6;
     cursor: not-allowed;
+    opacity: 0.6;
   }
 `;
 
 const StatsBar = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 32px;
+  padding: 0 24px;
 `;
 
-const StatCard = styled.div<{ gradient?: string }>`
-  background: ${props => props.gradient || 'white'};
+const StatCard = styled.div<{ $gradient?: string; $icon?: string }>`
+  background: ${props => props.$gradient || 'white'};
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  color: ${props => props.gradient ? 'white' : '#2c3e50'};
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: ${props => props.$gradient ? 'white' : '#2c3e50'};
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid ${props => props.$gradient ? 'transparent' : '#ecf0f1'};
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    pointer-events: none;
+  }
 `;
 
 const StatValue = styled.div`
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
 `;
 
 const StatLabel = styled.div`
   font-size: 13px;
-  opacity: ${props => props.color ? 1 : 0.8};
-  font-weight: 500;
+  opacity: 0.9;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
 const FiltersCard = styled.div`
@@ -98,12 +161,32 @@ const FiltersCard = styled.div`
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-left: 24px;
+  margin-right: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ecf0f1;
 `;
 
-const FiltersGrid = styled.div`
+const FiltersHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+`;
+
+const FiltersTitle = styled.h3`
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const FilterGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 `;
 
@@ -113,62 +196,85 @@ const FilterGroup = styled.div`
   gap: 8px;
 `;
 
-const Label = styled.label`
+const FilterLabel = styled.label`
   font-size: 13px;
   font-weight: 600;
   color: #2c3e50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 `;
 
-const Input = styled.input`
-  padding: 10px 12px;
+const FilterInput = styled.input`
+  padding: 10px 14px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  background: #f8f9fa;
 
   &:focus {
     outline: none;
     border-color: #3498db;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
   }
 `;
 
-const Select = styled.select`
-  padding: 10px 12px;
+const FilterSelect = styled.select`
+  padding: 10px 14px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
-  background: white;
+  background: #f8f9fa;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: all 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px;
+  padding-right: 36px;
 
   &:focus {
     outline: none;
     border-color: #3498db;
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
   }
 `;
 
-const SearchBar = styled.div`
-  position: relative;
+const ClearFiltersBtn = styled.button`
+  background: none;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7f8c8d;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 
-  svg {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #95a5a6;
-  }
-
-  input {
-    width: 100%;
-    padding: 10px 12px 10px 40px;
+  &:hover {
+    border-color: #e74c3c;
+    color: #e74c3c;
+    background: #ffe5e5;
   }
 `;
 
 const TableCard = styled.div`
   background: white;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ecf0f1;
+  margin: 0 24px 24px 24px;
+`;
+
+const TableWrapper = styled.div`
+  overflow-x: auto;
 `;
 
 const Table = styled.table`
@@ -176,27 +282,29 @@ const Table = styled.table`
   border-collapse: collapse;
 `;
 
-const Thead = styled.thead`
-  background: #f8f9fa;
-`;
-
 const Th = styled.th`
+  background: #f8f9fa;
   padding: 16px;
   text-align: left;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #2c3e50;
   border-bottom: 2px solid #ecf0f1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 `;
-
-const Tbody = styled.tbody``;
 
 const Tr = styled.tr`
   border-bottom: 1px solid #ecf0f1;
-  transition: background 0.2s;
+  transition: all 0.2s;
 
   &:hover {
     background: #f8f9fa;
+  }
+
+  &:last-child {
+    border-bottom: none;
   }
 `;
 
@@ -206,11 +314,29 @@ const Td = styled.td`
   color: #2c3e50;
 `;
 
-const StatusBadge = styled.span<{ status: string }>`
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
+const JobTitle = styled.div`
   font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 4px;
+`;
+
+const JobMeta = styled.div`
+  font-size: 12px;
+  color: #7f8c8d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const StatusBadge = styled.span<{ status: string }>`
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: capitalize;
   background: ${props => {
     switch (props.status) {
       case 'active': return '#d4edda';
@@ -231,23 +357,40 @@ const StatusBadge = styled.span<{ status: string }>`
   }};
 `;
 
+const MetricBadge = styled.span`
+  background: #e8f4f8;
+  color: #0c5460;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+`;
+
 const ActionButtons = styled.div`
   display: flex;
   gap: 8px;
+  align-items: center;
 `;
 
 const IconButton = styled.button`
   background: none;
   border: none;
-  padding: 6px;
+  padding: 8px;
   cursor: pointer;
   color: #7f8c8d;
-  transition: color 0.2s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
+  justify-content: center;
+  border-radius: 6px;
 
   &:hover {
     color: #3498db;
+    background: #e8f4f8;
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 `;
 
@@ -255,13 +398,15 @@ const Pagination = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 20px 24px;
   border-top: 1px solid #ecf0f1;
+  background: #f8f9fa;
 `;
 
 const PageInfo = styled.div`
   font-size: 14px;
   color: #7f8c8d;
+  font-weight: 500;
 `;
 
 const PageButtons = styled.div`
@@ -277,10 +422,12 @@ const PageButton = styled.button<{ active?: boolean }>`
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
   transition: all 0.2s;
 
   &:hover:not(:disabled) {
     background: ${props => props.active ? '#2980b9' : '#f8f9fa'};
+    border-color: #3498db;
   }
 
   &:disabled {
@@ -289,8 +436,8 @@ const PageButton = styled.button<{ active?: boolean }>`
   }
 `;
 
-const Modal = styled.div<{ isOpen: boolean }>`
-  display: ${props => props.isOpen ? 'flex' : 'none'};
+const Modal = styled.div<{ $isOpen: boolean }>`
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
   position: fixed;
   top: 0;
   left: 0;
@@ -301,30 +448,56 @@ const Modal = styled.div<{ isOpen: boolean }>`
   align-items: center;
   justify-content: center;
   overflow-y: auto;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 `;
 
 const ModalContent = styled.div`
   background: white;
   border-radius: 12px;
   padding: 32px;
-  max-width: 800px;
-  width: 90%;
+  max-width: 900px;
+  width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  margin: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
 `;
 
 const ModalHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #ecf0f1;
 `;
 
 const ModalTitle = styled.h2`
-  font-size: 24px;
-  font-weight: 600;
-  color: #2c3e50;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
 `;
 
 const CloseButton = styled.button`
@@ -339,58 +512,150 @@ const CloseButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s;
 
   &:hover {
-    color: #2c3e50;
+    color: #e74c3c;
+    background: #ffe5e5;
   }
 `;
 
-const DetailSection = styled.div`
-  margin-bottom: 24px;
-`;
-
-const DetailSectionTitle = styled.h3`
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 12px;
-`;
-
-const DetailRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #ecf0f1;
+const ModalSection = styled.div`
+  margin-bottom: 28px;
 
   &:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
 `;
 
-const DetailLabel = styled.span`
-  font-weight: 600;
-  color: #7f8c8d;
-`;
-
-const DetailValue = styled.span`
-  color: #2c3e50;
-  text-align: right;
-  max-width: 60%;
-`;
-
-const LoadingMessage = styled.div`
-  text-align: center;
-  padding: 60px;
+const ModalSectionTitle = styled.h3`
   font-size: 16px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ecf0f1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ModalGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+`;
+
+const ModalField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const ModalFieldLabel = styled.label`
+  font-size: 12px;
+  font-weight: 700;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const ModalFieldValue = styled.div`
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a202c;
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
   color: #7f8c8d;
 `;
 
-const ErrorMessage = styled.div`
-  background: #fee;
-  color: #c0392b;
-  padding: 16px;
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ecf0f1;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #7f8c8d;
+  text-align: center;
+`;
+
+const EmptyStateIcon = styled.div`
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+`;
+
+const EmptyStateText = styled.p`
+  font-size: 16px;
+  margin: 0;
+  color: #2c3e50;
+`;
+
+const ErrorAlert = styled.div`
+  background: #ffe5e5;
+  border: 1px solid #f5c6cb;
   border-radius: 8px;
-  margin-bottom: 24px;
+  padding: 16px;
+  margin: 0 24px 24px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #721c24;
+  font-size: 14px;
+`;
+
+const SuccessAlert = styled.div`
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 24px 24px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #155724;
+  font-size: 14px;
+`;
+
+const TableWrapper = styled.div`
+  overflow-x: auto;
+`;
+
+const Thead = styled.thead`
+  background: #f8f9fa;
+`;
+
+const Tbody = styled.tbody``;
+
+const OverviewSection = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 28px;
+  margin: 0 24px 32px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #ecf0f1;
 `;
 
 interface Job {
@@ -418,6 +683,7 @@ interface JobStats {
 }
 
 const JobMonitoring: React.FC = () => {
+  const { isAdmin } = useJobServiceAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<JobStats>({
     total: 0,
@@ -427,7 +693,6 @@ const JobMonitoring: React.FC = () => {
     total_applications: 0,
     avg_applications_per_job: 0,
   });
-  const [agencyStats, setAgencyStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -465,12 +730,54 @@ const JobMonitoring: React.FC = () => {
       if (searchQuery) params.search = searchQuery;
 
       const response = await jobApi.get('/posts', { params });
+      console.log('[JobMonitoring] Full API Response:', response);
+      console.log('[JobMonitoring] Response Data:', response.data);
 
-      setJobs(response.data.jobs || response.data || []);
-      setTotalPages(response.data.totalPages || 1);
+      // Handle the response structure: { items: [...], ... }
+      let jobsData = [];
+      
+      if (response.data?.items && Array.isArray(response.data.items)) {
+        jobsData = response.data.items;
+        console.log('[JobMonitoring] Parsed from response.data.items, count:', jobsData.length);
+      } else if (Array.isArray(response.data)) {
+        jobsData = response.data;
+        console.log('[JobMonitoring] Parsed as direct array, count:', jobsData.length);
+      } else if (response.data?.jobs && Array.isArray(response.data.jobs)) {
+        jobsData = response.data.jobs;
+        console.log('[JobMonitoring] Parsed from response.data.jobs, count:', jobsData.length);
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        jobsData = response.data.data;
+        console.log('[JobMonitoring] Parsed from response.data.data, count:', jobsData.length);
+      } else if (response.data?.posts && Array.isArray(response.data.posts)) {
+        jobsData = response.data.posts;
+        console.log('[JobMonitoring] Parsed from response.data.posts, count:', jobsData.length);
+      } else {
+        // If no array found, default to empty array (don't crash)
+        jobsData = [];
+        console.log('[JobMonitoring] No array found in response, defaulting to empty array');
+      }
+
+      console.log('[JobMonitoring] Final jobs data:', jobsData);
+      setJobs(jobsData);
+      setTotalPages(response.data.totalPages || response.data.pagination?.total_pages || 1);
     } catch (err: any) {
       console.error('Error loading jobs:', err);
-      setError(handleApiError(err));
+      
+      // Handle 403 Forbidden specifically
+      if (err.response?.status === 403) {
+        if (isAdmin) {
+          setError(
+            'Access Denied: The Job Service is not recognizing your admin role. ' +
+            'This is a backend configuration issue. Please contact support. ' +
+            'Error: ' + handleApiError(err)
+          );
+        } else {
+          setError('You do not have permission to access job postings. ' + handleApiError(err));
+        }
+      } else {
+        setError(handleApiError(err));
+      }
+      
       setJobs([]);
     } finally {
       setLoading(false);
@@ -488,13 +795,6 @@ const JobMonitoring: React.FC = () => {
         total_applications: statsData.total_applications || 0,
         avg_applications_per_job: statsData.avg_applications_per_job || 0,
       });
-
-      try {
-        const aStats = await monitoringApi.job.getAgencyStats();
-        setAgencyStats(aStats);
-      } catch (err) {
-        console.log('Skipping agency stats (might not be an agency user).');
-      }
     } catch (err) {
       console.error('Failed to load stats from API:', err);
       // Fallback: Calculate stats from loaded jobs if API fails
@@ -558,7 +858,14 @@ const JobMonitoring: React.FC = () => {
   };
 
   if (loading && jobs.length === 0) {
-    return <LoadingMessage>Loading job postings...</LoadingMessage>;
+    return (
+      <Container>
+        <LoadingContainer>
+          <LoadingSpinner />
+          <div style={{ marginLeft: '16px' }}>Loading job postings...</div>
+        </LoadingContainer>
+      </Container>
+    );
   }
 
   return (
@@ -580,31 +887,54 @@ const JobMonitoring: React.FC = () => {
         </HeaderActions>
       </PageHeader>
 
-      {error && <ErrorMessage>{error}</ErrorMessage>}
+      {isAdmin && (
+        <WarningMessage>
+          <FiAlertCircle size={20} />
+          <WarningContent>
+            <WarningTitle>Admin Access Notice</WarningTitle>
+            <WarningText>
+              You are accessing this as an admin. If you see a 403 error below, the Job Service backend 
+              needs to be configured to recognize admin roles. Contact your system administrator.
+            </WarningText>
+          </WarningContent>
+        </WarningMessage>
+      )}
+
+      {error && (
+        <ErrorAlert>
+          <FiAlertCircle size={18} />
+          <div>{error}</div>
+        </ErrorAlert>
+      )}
+
+      {/* ── Job Market Overview (Global + Agency Stats) ── */}
+      <OverviewSection>
+        <JobMarketOverview />
+      </OverviewSection>
 
       <StatsBar>
-        <StatCard gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
           <StatValue>{stats.total.toLocaleString()}</StatValue>
           <StatLabel>
             <FiBriefcase />
             Total Jobs
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)">
           <StatValue>{stats.active.toLocaleString()}</StatValue>
           <StatLabel>
             <FiCheckCircle />
             Active Jobs
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
           <StatValue>{stats.total_applications.toLocaleString()}</StatValue>
           <StatLabel>
             <FiUsers />
             Total Applications
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
           <StatValue>{stats.avg_applications_per_job.toFixed(1)}</StatValue>
           <StatLabel>
             <FiTrendingUp />
@@ -613,142 +943,172 @@ const JobMonitoring: React.FC = () => {
         </StatCard>
       </StatsBar>
 
-      {agencyStats && Object.keys(agencyStats).length > 0 && (
-        <>
-          <PageTitle style={{ fontSize: '20px', marginTop: '10px', marginBottom: '20px' }}>Your Agency Statistics</PageTitle>
-          <StatsBar>
-            {Object.entries(agencyStats).map(([key, value]) => {
-              if (typeof value !== 'object' && value !== null) {
-                return (
-                  <StatCard key={key}>
-                    <StatValue>{String(value)}</StatValue>
-                    <StatLabel style={{ textTransform: 'capitalize' }}>
-                      {key.replace(/_/g, ' ')}
-                    </StatLabel>
-                  </StatCard>
-                );
-              }
-              return null;
-            })}
-          </StatsBar>
-        </>
-      )}
-
       <FiltersCard>
-        <FiltersGrid>
+        <FiltersHeader>
+          <FiltersTitle>
+            <FiFilter size={18} />
+            Filters & Search
+          </FiltersTitle>
+          {(searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all') && (
+            <ClearFiltersBtn onClick={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+              setCategoryFilter('all');
+              setLocationFilter('all');
+            }}>
+              <FiX size={14} />
+              Clear Filters
+            </ClearFiltersBtn>
+          )}
+        </FiltersHeader>
+        <FilterGrid>
           <FilterGroup>
-            <Label>Search</Label>
-            <SearchBar>
-              <FiSearch />
-              <Input
-                type="text"
-                placeholder="Search by title or company..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </SearchBar>
+            <FilterLabel>Search</FilterLabel>
+            <FilterInput
+              type="text"
+              placeholder="Search by title or company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </FilterGroup>
 
           <FilterGroup>
-            <Label>Status</Label>
-            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <FilterLabel>Status</FilterLabel>
+            <FilterSelect value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="closed">Closed</option>
               <option value="expired">Expired</option>
               <option value="draft">Draft</option>
-            </Select>
+            </FilterSelect>
           </FilterGroup>
 
           <FilterGroup>
-            <Label>Category</Label>
-            <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <FilterLabel>Category</FilterLabel>
+            <FilterSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">All Categories</option>
               <option value="technology">Technology</option>
               <option value="finance">Finance</option>
               <option value="healthcare">Healthcare</option>
               <option value="education">Education</option>
               <option value="marketing">Marketing</option>
-            </Select>
+            </FilterSelect>
           </FilterGroup>
 
           <FilterGroup>
-            <Label>Location</Label>
-            <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+            <FilterLabel>Location</FilterLabel>
+            <FilterSelect value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
               <option value="all">All Locations</option>
               <option value="addis-ababa">Addis Ababa</option>
               <option value="dire-dawa">Dire Dawa</option>
               <option value="mekelle">Mekelle</option>
               <option value="bahir-dar">Bahir Dar</option>
               <option value="remote">Remote</option>
-            </Select>
+            </FilterSelect>
           </FilterGroup>
-        </FiltersGrid>
+        </FilterGrid>
       </FiltersCard>
 
       <TableCard>
         {jobs.length === 0 && !loading ? (
-          <LoadingMessage>
-            No jobs found. {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all'
-              ? 'Try adjusting your filters.'
-              : 'Jobs will appear here once they are posted.'}
-          </LoadingMessage>
+          <EmptyState>
+            <EmptyStateIcon>
+              <FiBriefcase size={48} />
+            </EmptyStateIcon>
+            <EmptyStateText>
+              {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all'
+                ? 'No jobs found. Try adjusting your filters.'
+                : 'No jobs available yet. Jobs will appear here once they are posted.'}
+            </EmptyStateText>
+          </EmptyState>
         ) : (
           <>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Job Title</Th>
-                  <Th>Company</Th>
-                  <Th>Location</Th>
-                  <Th>Category</Th>
-                  <Th>Status</Th>
-                  <Th>Applications</Th>
-                  <Th>Views</Th>
-                  <Th>Posted</Th>
-                  <Th>Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {jobs.map((job) => (
-                  <Tr key={job._id}>
-                    <Td>{job.title}</Td>
-                    <Td>{job.company}</Td>
-                    <Td>{job.location}</Td>
-                    <Td>{job.category}</Td>
-                    <Td>
-                      <StatusBadge status={job.status}>{job.status}</StatusBadge>
-                    </Td>
-                    <Td>{job.applications_count || 0}</Td>
-                    <Td>{job.views_count || 0}</Td>
-                    <Td>{new Date(job.created_at).toLocaleDateString()}</Td>
-                    <Td>
-                      <ActionButtons>
-                        <IconButton onClick={() => handleViewJob(job)} title="View Details">
-                          <FiEye />
-                        </IconButton>
-                        {job.status === 'active' && (
-                          <IconButton
-                            onClick={() => handleUpdateStatus(job._id, 'closed')}
-                            title="Close Job"
-                          >
-                            <FiXCircle />
-                          </IconButton>
-                        )}
-                        {job.status === 'closed' && (
-                          <IconButton
-                            onClick={() => handleUpdateStatus(job._id, 'active')}
-                            title="Reopen Job"
-                          >
-                            <FiCheckCircle />
-                          </IconButton>
-                        )}
-                      </ActionButtons>
-                    </Td>
+            <TableWrapper>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Job Title</Th>
+                    <Th>Company</Th>
+                    <Th>Location</Th>
+                    <Th>Category</Th>
+                    <Th>Status</Th>
+                    <Th>Applications</Th>
+                    <Th>Views</Th>
+                    <Th>Posted</Th>
+                    <Th>Actions</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {jobs.map((job) => (
+                    <Tr key={job._id}>
+                      <Td>
+                        <JobTitle>{job.title}</JobTitle>
+                        <JobMeta>
+                          {job.salary_min && job.salary_max && (
+                            <>
+                              <FiDollarSign size={12} />
+                              ${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()}
+                            </>
+                          )}
+                        </JobMeta>
+                      </Td>
+                      <Td>{job.company}</Td>
+                      <Td>
+                        <JobMeta>
+                          <FiMapPin size={12} />
+                          {job.location}
+                        </JobMeta>
+                      </Td>
+                      <Td>{job.category}</Td>
+                      <Td>
+                        <StatusBadge status={job.status}>
+                          {job.status === 'active' && <FiCheckCircle size={12} />}
+                          {job.status === 'closed' && <FiXCircle size={12} />}
+                          {job.status === 'expired' && <FiClock size={12} />}
+                          {job.status}
+                        </StatusBadge>
+                      </Td>
+                      <Td>
+                        <MetricBadge>
+                          <FiUsers size={12} style={{ marginRight: '4px' }} />
+                          {job.applications_count || 0}
+                        </MetricBadge>
+                      </Td>
+                      <Td>
+                        <MetricBadge>
+                          <FiEye size={12} style={{ marginRight: '4px' }} />
+                          {job.views_count || 0}
+                        </MetricBadge>
+                      </Td>
+                      <Td>{new Date(job.created_at).toLocaleDateString()}</Td>
+                      <Td>
+                        <ActionButtons>
+                          <IconButton onClick={() => handleViewJob(job)} title="View Details">
+                            <FiEye size={16} />
+                          </IconButton>
+                          {job.status === 'active' && (
+                            <IconButton
+                              onClick={() => handleUpdateStatus(job._id, 'closed')}
+                              title="Close Job"
+                            >
+                              <FiXCircle size={16} />
+                            </IconButton>
+                          )}
+                          {job.status === 'closed' && (
+                            <IconButton
+                              onClick={() => handleUpdateStatus(job._id, 'active')}
+                              title="Reopen Job"
+                            >
+                              <FiCheckCircle size={16} />
+                            </IconButton>
+                          )}
+                        </ActionButtons>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableWrapper>
 
             <Pagination>
               <PageInfo>
@@ -785,89 +1145,119 @@ const JobMonitoring: React.FC = () => {
         )}
       </TableCard>
 
-      <Modal isOpen={modalOpen}>
+      <Modal $isOpen={modalOpen}>
         <ModalContent>
           <ModalHeader>
-            <ModalTitle>Job Details</ModalTitle>
-            <CloseButton onClick={() => setModalOpen(false)}>×</CloseButton>
+            <ModalTitle>
+              <FiBriefcase style={{ marginRight: '12px' }} />
+              Job Details
+            </ModalTitle>
+            <CloseButton onClick={() => setModalOpen(false)}>
+              <FiX size={24} />
+            </CloseButton>
           </ModalHeader>
           {selectedJob && (
             <>
-              <DetailSection>
-                <DetailSectionTitle>Basic Information</DetailSectionTitle>
-                <DetailRow>
-                  <DetailLabel>Job ID:</DetailLabel>
-                  <DetailValue>{selectedJob._id}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Title:</DetailLabel>
-                  <DetailValue>{selectedJob.title}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Company:</DetailLabel>
-                  <DetailValue>{selectedJob.company}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Location:</DetailLabel>
-                  <DetailValue>{selectedJob.location}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Category:</DetailLabel>
-                  <DetailValue>{selectedJob.category}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Status:</DetailLabel>
-                  <DetailValue>
-                    <StatusBadge status={selectedJob.status}>{selectedJob.status}</StatusBadge>
-                  </DetailValue>
-                </DetailRow>
-              </DetailSection>
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiBriefcase size={16} />
+                  Basic Information
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Job ID</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob._id}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Title</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.title}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Company</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.company}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Location</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.location}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Category</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.category}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Status</ModalFieldLabel>
+                    <ModalFieldValue>
+                      <StatusBadge status={selectedJob.status}>
+                        {selectedJob.status === 'active' && <FiCheckCircle size={12} style={{ marginRight: '4px' }} />}
+                        {selectedJob.status === 'closed' && <FiXCircle size={12} style={{ marginRight: '4px' }} />}
+                        {selectedJob.status === 'expired' && <FiClock size={12} style={{ marginRight: '4px' }} />}
+                        {selectedJob.status}
+                      </StatusBadge>
+                    </ModalFieldValue>
+                  </ModalField>
+                </ModalGrid>
+              </ModalSection>
 
-              <DetailSection>
-                <DetailSectionTitle>Salary & Compensation</DetailSectionTitle>
-                <DetailRow>
-                  <DetailLabel>Salary Range:</DetailLabel>
-                  <DetailValue>
-                    {selectedJob.salary_min && selectedJob.salary_max
-                      ? `$${selectedJob.salary_min.toLocaleString()} - $${selectedJob.salary_max.toLocaleString()}`
-                      : 'Not specified'}
-                  </DetailValue>
-                </DetailRow>
-              </DetailSection>
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiDollarSign size={16} />
+                  Salary & Compensation
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Salary Range</ModalFieldLabel>
+                    <ModalFieldValue>
+                      {selectedJob.salary_min && selectedJob.salary_max
+                        ? `$${selectedJob.salary_min.toLocaleString()} - $${selectedJob.salary_max.toLocaleString()}`
+                        : 'Not specified'}
+                    </ModalFieldValue>
+                  </ModalField>
+                </ModalGrid>
+              </ModalSection>
 
-              <DetailSection>
-                <DetailSectionTitle>Performance Metrics</DetailSectionTitle>
-                <DetailRow>
-                  <DetailLabel>Applications:</DetailLabel>
-                  <DetailValue>{selectedJob.applications_count || 0}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Views:</DetailLabel>
-                  <DetailValue>{selectedJob.views_count || 0}</DetailValue>
-                </DetailRow>
-                <DetailRow>
-                  <DetailLabel>Conversion Rate:</DetailLabel>
-                  <DetailValue>
-                    {selectedJob.views_count > 0
-                      ? `${((selectedJob.applications_count / selectedJob.views_count) * 100).toFixed(1)}%`
-                      : 'N/A'}
-                  </DetailValue>
-                </DetailRow>
-              </DetailSection>
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiBarChart2 size={16} />
+                  Performance Metrics
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Applications</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.applications_count || 0}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Views</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.views_count || 0}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Conversion Rate</ModalFieldLabel>
+                    <ModalFieldValue>
+                      {selectedJob.views_count > 0
+                        ? `${((selectedJob.applications_count / selectedJob.views_count) * 100).toFixed(1)}%`
+                        : 'N/A'}
+                    </ModalFieldValue>
+                  </ModalField>
+                </ModalGrid>
+              </ModalSection>
 
-              <DetailSection>
-                <DetailSectionTitle>Timeline</DetailSectionTitle>
-                <DetailRow>
-                  <DetailLabel>Posted:</DetailLabel>
-                  <DetailValue>{new Date(selectedJob.created_at).toLocaleString()}</DetailValue>
-                </DetailRow>
-                {selectedJob.expires_at && (
-                  <DetailRow>
-                    <DetailLabel>Expires:</DetailLabel>
-                    <DetailValue>{new Date(selectedJob.expires_at).toLocaleString()}</DetailValue>
-                  </DetailRow>
-                )}
-              </DetailSection>
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiClock size={16} />
+                  Timeline
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Posted</ModalFieldLabel>
+                    <ModalFieldValue>{new Date(selectedJob.created_at).toLocaleString()}</ModalFieldValue>
+                  </ModalField>
+                  {selectedJob.expires_at && (
+                    <ModalField>
+                      <ModalFieldLabel>Expires</ModalFieldLabel>
+                      <ModalFieldValue>{new Date(selectedJob.expires_at).toLocaleString()}</ModalFieldValue>
+                    </ModalField>
+                  )}
+                </ModalGrid>
+              </ModalSection>
             </>
           )}
         </ModalContent>

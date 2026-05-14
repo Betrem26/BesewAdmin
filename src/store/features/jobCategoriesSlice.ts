@@ -1,170 +1,116 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { jobCategoryApi, JobCategory } from '../../services/jobCategoryApi';
+﻿import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { jobCategoryApi, JobCategory } from "../../services/jobCategoryApi";
 
 interface JobCategoriesState {
-  categories: JobCategory[];
   adminCategories: JobCategory[];
-  selectedCategory: JobCategory | null;
   loading: boolean;
   error: string | null;
 }
 
 const initialState: JobCategoriesState = {
-  categories: [],
   adminCategories: [],
-  selectedCategory: null,
   loading: false,
   error: null,
 };
 
-// Async thunks
 export const fetchAdminCategories = createAsyncThunk(
-  'jobCategories/fetchAdminCategories',
-  async () => {
-    const response = await jobCategoryApi.getAdminCategories();
-    return response;
-  }
-);
-
-export const fetchCategoriesByLang = createAsyncThunk(
-  'jobCategories/fetchCategoriesByLang',
-  async (langOpt: string) => {
-    const response = await jobCategoryApi.getCategoryByLang(langOpt);
-    return response;
-  }
-);
-
-export const fetchCategoriesByType = createAsyncThunk(
-  'jobCategories/fetchCategoriesByType',
-  async (companyType: string) => {
-    const response = await jobCategoryApi.getCategoryByType(companyType);
-    return response;
+  "jobCategories/fetchAdminCategories",
+  async ({ langOpt, companyType }: { langOpt?: string; companyType?: string } = {}) => {
+    return jobCategoryApi.getAdminCategories(langOpt, companyType);
   }
 );
 
 export const createCategory = createAsyncThunk(
-  'jobCategories/createCategory',
-  async (data: { name: string; description?: string; companyType: string; langOpt: string; icon?: File }) => {
-    const response = await jobCategoryApi.createAdminCategory(data);
-    return response;
+  "jobCategories/createCategory",
+  async (data: { categoryName: string; companyType: string; langOpt: string; icon?: File }) => {
+    return jobCategoryApi.createCategory(data);
   }
 );
 
 export const updateCategory = createAsyncThunk(
-  'jobCategories/updateCategory',
-  async ({ id, data }: { id: string; data: { name?: string; description?: string; companyType?: string; langOpt?: string; icon?: File; isActive?: boolean } }) => {
-    const response = await jobCategoryApi.updateCategory(id, data);
-    return response;
+  "jobCategories/updateCategory",
+  async ({ id, data }: { id: string; data: { categoryName?: string; companyType?: string; langOpt?: string; icon?: File } }) => {
+    return jobCategoryApi.updateCategory(id, data);
   }
 );
 
 export const deleteCategory = createAsyncThunk(
-  'jobCategories/deleteCategory',
+  "jobCategories/deleteCategory",
   async (id: string) => {
     await jobCategoryApi.deleteCategory(id);
     return id;
   }
 );
 
+// Keep these for backward compat with other pages that may use them
+export const fetchCategoriesByLang = createAsyncThunk(
+  "jobCategories/fetchCategoriesByLang",
+  async (langOpt: string) => jobCategoryApi.getCategoryByLang(langOpt)
+);
+
+export const fetchCategoriesByType = createAsyncThunk(
+  "jobCategories/fetchCategoriesByType",
+  async (companyType: string) => jobCategoryApi.getCategoryByType(companyType)
+);
+
 const jobCategoriesSlice = createSlice({
-  name: 'jobCategories',
+  name: "jobCategories",
   initialState,
   reducers: {
-    clearError: (state) => {
-      state.error = null;
-    },
-    clearSelectedCategory: (state) => {
-      state.selectedCategory = null;
-    },
-    setSelectedCategory: (state, action) => {
-      state.selectedCategory = action.payload;
-    },
+    clearError: (state) => { state.error = null; },
   },
   extraReducers: (builder) => {
+    const pending  = (state: JobCategoriesState) => { state.loading = true;  state.error = null; };
+    const rejected = (state: JobCategoriesState, action: any) => {
+      state.loading = false;
+      state.error = action.error.message || "Request failed";
+    };
+
     builder
-      // Fetch admin categories
-      .addCase(fetchAdminCategories.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchAdminCategories.pending,   pending)
       .addCase(fetchAdminCategories.fulfilled, (state, action) => {
         state.loading = false;
         state.adminCategories = action.payload;
       })
-      .addCase(fetchAdminCategories.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch categories';
-      })
-      // Fetch by Language
-      .addCase(fetchCategoriesByLang.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchAdminCategories.rejected,  rejected)
+
+      .addCase(fetchCategoriesByLang.pending,   pending)
       .addCase(fetchCategoriesByLang.fulfilled, (state, action) => {
         state.loading = false;
         state.adminCategories = action.payload;
       })
-      .addCase(fetchCategoriesByLang.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch categories by lang';
-      })
-      // Fetch by Type
-      .addCase(fetchCategoriesByType.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchCategoriesByLang.rejected,  rejected)
+
+      .addCase(fetchCategoriesByType.pending,   pending)
       .addCase(fetchCategoriesByType.fulfilled, (state, action) => {
         state.loading = false;
         state.adminCategories = action.payload;
       })
-      .addCase(fetchCategoriesByType.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch categories by type';
-      })
-      // Create category
-      .addCase(createCategory.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchCategoriesByType.rejected,  rejected)
+
+      .addCase(createCategory.pending,   pending)
       .addCase(createCategory.fulfilled, (state, action) => {
         state.loading = false;
-        state.adminCategories.push(action.payload);
+        state.adminCategories.unshift(action.payload);
       })
-      .addCase(createCategory.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to create category';
-      })
-      // Update category
-      .addCase(updateCategory.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(createCategory.rejected,  rejected)
+
+      .addCase(updateCategory.pending,   pending)
       .addCase(updateCategory.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.adminCategories.findIndex(c => c._id === action.payload._id);
-        if (index !== -1) {
-          state.adminCategories[index] = action.payload;
-        }
+        const idx = state.adminCategories.findIndex(c => c._id === action.payload._id);
+        if (idx !== -1) state.adminCategories[idx] = action.payload;
       })
-      .addCase(updateCategory.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to update category';
-      })
-      // Delete category
-      .addCase(deleteCategory.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(updateCategory.rejected,  rejected)
+
+      .addCase(deleteCategory.pending,   pending)
       .addCase(deleteCategory.fulfilled, (state, action) => {
         state.loading = false;
         state.adminCategories = state.adminCategories.filter(c => c._id !== action.payload);
       })
-      .addCase(deleteCategory.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to delete category';
-      });
+      .addCase(deleteCategory.rejected,  rejected);
   },
 });
 
-export const { clearError, clearSelectedCategory, setSelectedCategory } = jobCategoriesSlice.actions;
+export const { clearError } = jobCategoriesSlice.actions;
 export default jobCategoriesSlice.reducer;

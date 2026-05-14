@@ -57,14 +57,21 @@ const UserManagementEnhanced: React.FC = () => {
 
   // Search by phone number using the real API endpoint
   const fetchAllPhones = async (list: Account[]) => {
-    const needsPhone = list.filter(a => !a.phone && !a.phonenumber);
-    for (const a of needsPhone) {
+    // Fetch party profile for every account to get phone + photo
+    for (const a of list) {
       try {
         const res = await partyApi.get(`/party-profiles/find-by-party-id/${a.party_id}`);
         const phone = res.data?.phone_number || res.data?.phone || res.data?.phonenumber;
-        if (phone) {
+        const rawPhoto = res.data?.photo;
+        const PARTY_BASE = import.meta.env.VITE_PARTY_SERVICE || 'https://stage-party.besewonline.com';
+        const photo = rawPhoto
+          ? (rawPhoto.startsWith('http') ? rawPhoto : `${PARTY_BASE}/company-data/file/${rawPhoto}`)
+          : undefined;
+        if (phone || photo) {
           setAccounts(prev => prev.map(acc =>
-            acc.party_id === a.party_id ? { ...acc, phone } : acc
+            acc.party_id === a.party_id
+              ? { ...acc, ...(phone ? { phone } : {}), ...(photo ? { avatar: photo } : {}) }
+              : acc
           ));
         }
       } catch { /* silent */ }

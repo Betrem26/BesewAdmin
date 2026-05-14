@@ -1,211 +1,109 @@
-// Job Category API Service
-import { jobApi, handleApiError } from './api';
+﻿// Job Category API Service
+import { jobApi, API_ENDPOINTS, handleApiError } from "./api";
+
+// ── Types matching the real API response ─────────────────────────────────
 
 export interface JobCategory {
   _id: string;
-  name: string;
-  description?: string;
+  categoryName: string;   // API field name
+  company_type: "company" | "local_agency" | "Int_agency" | "bpo" | "broker";
+  lang_opt: "English" | "Amharic" | "Oromiffa";
+  partyId: string;
   icon?: string;
-  companyType: 'company' | 'local_agency' | 'Int_agency' | 'bpo' | 'broker';
-  langOpt: 'English' | 'Amharic' | 'Oromiffa';
-  addedByAdmin: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  addedByAdmin?: boolean;
+  cat_id?: number;
+  __v?: number;
 }
 
 export interface CreateJobCategoryDto {
-  name: string;
-  description?: string;
+  categoryName: string;
   companyType: string;
   langOpt: string;
   icon?: File;
 }
 
 export interface UpdateJobCategoryDto {
-  name?: string;
-  description?: string;
+  categoryName?: string;
   companyType?: string;
   langOpt?: string;
   icon?: File;
-  isActive?: boolean;
 }
 
+/** Resolve icon URL — API returns relative paths like "uploads/icon/abc.png" */
+export const resolveIconUrl = (icon?: string): string | undefined => {
+  if (!icon) return undefined;
+  if (icon.startsWith("http://") || icon.startsWith("https://")) return icon;
+  const base = API_ENDPOINTS.job.replace(/\/$/, "");
+  return `${base}/${icon.replace(/^\//, "")}`;
+};
+
 export const jobCategoryApi = {
-  /**
-   * Get all job categories
-   */
+  /** GET /job-category */
   getAllCategories: async (): Promise<JobCategory[]> => {
-    try {
-      const response = await jobApi.get<JobCategory[]>('/job-category');
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const response = await jobApi.get<JobCategory[]>("/job-category");
+    return response.data;
   },
 
   /**
-   * Get admin-added categories with filters
+   * POST /job-category/adminCategory
+   * Fetches admin categories. Uses POST with JSON body per Swagger spec.
    */
   getAdminCategories: async (langOpt?: string, companyType?: string): Promise<JobCategory[]> => {
-    try {
-      const params = new URLSearchParams();
-      if (langOpt) params.append('langOpt', langOpt);
-      if (companyType) params.append('companyType', companyType);
-      
-      const response = await jobApi.get<JobCategory[]>(
-        `/job-category/adminCategory?${params.toString()}`
-      );
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const body: Record<string, string> = {};
+    if (langOpt && langOpt !== "all") body.langOpt = langOpt;
+    if (companyType && companyType !== "all") body.companyType = companyType;
+    const response = await jobApi.post<JobCategory[]>("/job-category/adminCategory", body, {
+      headers: { "Content-Type": "application/json" },
+    });
+    return response.data;
   },
 
-  /**
-   * Get category by ID
-   */
+  /** GET /job-category/{id} */
   getCategory: async (id: string): Promise<JobCategory> => {
-    try {
-      const response = await jobApi.get<JobCategory>(`/job-category/${id}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const response = await jobApi.get<JobCategory>(`/job-category/${id}`);
+    return response.data;
   },
 
-  /**
-   * Get category by language
-   */
+  /** GET /job-category/by-lang/{lang} */
   getCategoryByLang: async (langOpt: string): Promise<JobCategory[]> => {
-    try {
-      const response = await jobApi.get<JobCategory[]>(`/job-category/by-lang/${langOpt}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const response = await jobApi.get<JobCategory[]>(`/job-category/by-lang/${langOpt}`);
+    return response.data;
   },
 
-  /**
-   * Get category by company type
-   */
+  /** GET /job-category/by-type/{companyType} */
   getCategoryByType: async (companyType: string): Promise<JobCategory[]> => {
-    try {
-      const response = await jobApi.get<JobCategory[]>(`/job-category/by-type/${companyType}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const response = await jobApi.get<JobCategory[]>(`/job-category/by-type/${companyType}`);
+    return response.data;
   },
 
-  /**
-   * Create new job category (Admin only)
-   */
+  /** POST /job-category — multipart/form-data */
   createCategory: async (data: CreateJobCategoryDto): Promise<JobCategory> => {
-    try {
-      const formData = new FormData();
-      formData.append('name', data.name);
-      if (data.description) formData.append('description', data.description);
-      formData.append('companyType', data.companyType);
-      formData.append('langOpt', data.langOpt);
-      if (data.icon) formData.append('icon', data.icon);
-
-      const response = await jobApi.post<JobCategory>('/job-category', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const fd = new FormData();
+    fd.append("categoryName", data.categoryName);
+    fd.append("company_type", data.companyType);
+    fd.append("lang_opt", data.langOpt);
+    if (data.icon) fd.append("icon", data.icon);
+    const response = await jobApi.post<JobCategory>("/job-category", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
   },
 
-  /**
-   * Create new admin job category (Admin only)
-   */
-  createAdminCategory: async (data: CreateJobCategoryDto): Promise<JobCategory> => {
-    try {
-      const formData = new FormData();
-      formData.append('name', data.name);
-      if (data.description) formData.append('description', data.description);
-      formData.append('companyType', data.companyType);
-      formData.append('langOpt', data.langOpt);
-      if (data.icon) formData.append('icon', data.icon);
-
-      const response = await jobApi.post<JobCategory>('/job-category/adminCategory', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
-  },
-
-  /**
-   * Update job category (Admin only)
-   */
+  /** PUT /job-category/{id} — multipart/form-data */
   updateCategory: async (id: string, data: UpdateJobCategoryDto): Promise<JobCategory> => {
-    try {
-      const formData = new FormData();
-      if (data.name) formData.append('name', data.name);
-      if (data.description) formData.append('description', data.description);
-      if (data.companyType) formData.append('companyType', data.companyType);
-      if (data.langOpt) formData.append('langOpt', data.langOpt);
-      if (data.icon) formData.append('icon', data.icon);
-      if (data.isActive !== undefined) formData.append('isActive', String(data.isActive));
-
-      const response = await jobApi.put<JobCategory>(`/job-category/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    const fd = new FormData();
+    if (data.categoryName) fd.append("categoryName", data.categoryName);
+    if (data.companyType)  fd.append("company_type", data.companyType);
+    if (data.langOpt)      fd.append("lang_opt", data.langOpt);
+    if (data.icon)         fd.append("icon", data.icon);
+    const response = await jobApi.put<JobCategory>(`/job-category/${id}`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
   },
 
-  /**
-   * Delete job category (Admin only)
-   */
+  /** DELETE /job-category/{id} */
   deleteCategory: async (id: string): Promise<void> => {
-    try {
-      await jobApi.delete(`/job-category/${id}`);
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
-  },
-
-  /**
-   * Get category statistics
-   */
-  getCategoryStats: async (): Promise<{
-    total: number;
-    byCompanyType: Record<string, number>;
-    byLanguage: Record<string, number>;
-    adminAdded: number;
-  }> => {
-    try {
-      const categories = await jobCategoryApi.getAllCategories();
-      const byCompanyType: Record<string, number> = {};
-      const byLanguage: Record<string, number> = {};
-      
-      categories.forEach(cat => {
-        byCompanyType[cat.companyType] = (byCompanyType[cat.companyType] || 0) + 1;
-        byLanguage[cat.langOpt] = (byLanguage[cat.langOpt] || 0) + 1;
-      });
-
-      return {
-        total: categories.length,
-        byCompanyType,
-        byLanguage,
-        adminAdded: categories.filter(c => c.addedByAdmin).length,
-      };
-    } catch (error) {
-      throw new Error(handleApiError(error));
-    }
+    await jobApi.delete(`/job-category/${id}`);
   },
 };

@@ -174,8 +174,10 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     section: 'Business',
     items: [
       { path: '/dashboard/jobs', label: 'Jobs', icon: <FiBriefcase />, permission: 'VIEW_JOB_STATISTICS' },
+      { path: '/dashboard/company-management', label: 'Company Management', icon: <FiUsers />, permission: 'VIEW_COMPANY_STATISTICS' },
+      { path: '/dashboard/companies', label: 'Companies', icon: <FiUsers />, permission: 'VIEW_COMPANY_STATISTICS' },
       { path: '/dashboard/candidates', label: 'Candidates', icon: <FiTarget />, permission: 'VIEW_CANDIDATE_STATISTICS' },
-      { path: '/dashboard/startups', label: 'Companies', icon: <FiActivity /> },
+      { path: '/dashboard/startups', label: 'Startups', icon: <FiActivity /> },
     ],
   },
   {
@@ -208,6 +210,7 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     section: 'Content',
     items: [
       { path: '/dashboard/job-categories', label: 'Job Categories', icon: <FiBriefcase /> },
+      { path: '/dashboard/job-templates',  label: 'Job Templates & AI', icon: <FiTarget /> },
     ],
   },
   {
@@ -234,11 +237,30 @@ const DashboardLayout: React.FC = () => {
 
   React.useEffect(() => {
     const currentPath = location.pathname;
-    const foundSection = menuItems.find(section =>
-      section.items.some(item => currentPath.startsWith(item.path))
-    );
+    
+    // Find the section by matching the longest matching path
+    // This prevents /dashboard/company-management from matching /dashboard/companies
+    let foundSection = null;
+    let longestMatch = '';
+    
+    menuItems.forEach(section => {
+      section.items.forEach(item => {
+        if (currentPath.startsWith(item.path) && item.path.length > longestMatch.length) {
+          longestMatch = item.path;
+          foundSection = section;
+        }
+      });
+    });
+    
     if (foundSection) setActiveTab(foundSection.section);
   }, [location.pathname]);
+
+  const handleTabClick = (section: string, items: MenuItem[]) => {
+    setActiveTab(section);
+    if (items.length > 0) {
+      handleNavigation(items[0].path);
+    }
+  };
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -258,7 +280,8 @@ const DashboardLayout: React.FC = () => {
 
         <Nav>
           {menuItems.map((section, idx) => {
-            if (section.section !== activeTab) return null;
+            const shouldShow = section.section === activeTab;
+            if (!shouldShow) return null;
             return (
               <NavSection key={idx}>
                 {section.items.map(item => (
@@ -292,10 +315,7 @@ const DashboardLayout: React.FC = () => {
               <Tab
                 key={section.section}
                 $active={activeTab === section.section}
-                onClick={() => {
-                  setActiveTab(section.section);
-                  if (section.items.length > 0) handleNavigation(section.items[0].path);
-                }}
+                onClick={() => handleTabClick(section.section, section.items)}
               >
                 {section.section}
               </Tab>
