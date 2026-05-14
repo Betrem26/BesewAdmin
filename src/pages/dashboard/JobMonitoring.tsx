@@ -733,7 +733,7 @@ interface JobStats {
 }
 
 const JobMonitoring: React.FC = () => {
-  const { isAdmin } = useJobServiceAuth();
+  useJobServiceAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<JobStats>({
     total: 0,
@@ -822,13 +822,11 @@ const JobMonitoring: React.FC = () => {
         try {
           const calculatedStats = {
             total: jobs.length,
-            active: jobs.filter(j => j?.status === 'active').length,
-            closed: jobs.filter(j => j?.status === 'closed').length,
-            expired: jobs.filter(j => j?.status === 'expired').length,
-            total_applications: jobs.reduce((sum, j) => sum + (j?.applications_count || 0), 0),
-            avg_applications_per_job: jobs.length > 0
-              ? jobs.reduce((sum, j) => sum + (j?.applications_count || 0), 0) / jobs.length
-              : 0,
+            active: jobs.filter(j => j?.post_status === 'active').length,
+            closed: jobs.filter(j => j?.post_status === 'closed').length,
+            expired: jobs.filter(j => j?.post_status === 'expired').length,
+            total_applications: 0,
+            avg_applications_per_job: 0,
           };
           setStats(calculatedStats);
           console.log('Calculated stats from jobs:', calculatedStats);
@@ -866,29 +864,20 @@ const JobMonitoring: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = async (postId: string, newStatus: string) => {
-    try {
-      await jobApi.patch(`/posts/${postId}`, { post_status: newStatus });
-      loadJobs();
-    } catch (err: any) {
-      const message = err.response?.data?.message || handleApiError(err);
-      setError(message);
-    }
-  };
-
   const handleExport = () => {
     const csv = [
-      ['Title', 'Company', 'Location', 'Category', 'Status', 'Applications', 'Views', 'Created'],
-      ...jobs.map(j => [
-        j.title,
-        j.company,
-        j.location,
-        j.category,
-        j.status,
-        j.applications_count,
-        j.views_count,
-        new Date(j.created_at).toLocaleDateString()
-      ])
+      ['Title', 'Company', 'Location', 'Category', 'Status', 'Posted'],
+      ...jobs.map(j => {
+        const v = j.vacancies_topost?.[0];
+        return [
+          v?.jobData?.jobTitle || '',
+          v?.companyData?.companyName || v?.employer || '',
+          `${v?.jobData?.jobLocation?.city || ''} ${v?.jobData?.jobLocation?.country || ''}`.trim(),
+          v?.category?.name || '',
+          j.post_status,
+          new Date(j.posted_date).toLocaleDateString()
+        ];
+      })
     ].map(row => row.join(',')).join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
