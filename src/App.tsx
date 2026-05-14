@@ -16,7 +16,6 @@ import { PsychometricAnalytics } from './pages/dashboard/PsychometricAnalytics';
 import UserManagement from './pages/dashboard/UserManagement';
 import UserManagementEnhanced from './pages/dashboard/UserManagementEnhanced';
 import JobMonitoring from './pages/dashboard/JobMonitoring';
-import AppliedJobs from './pages/dashboard/AppliedJobs';
 import CompanyManagement from './pages/dashboard/CompanyManagement';
 import StartupManagement from './pages/dashboard/StartupManagement';
 import CandidateManagement from './pages/dashboard/CandidateManagement';

@@ -641,19 +641,86 @@ const OverviewSection = styled.div`
   border: 1px solid #ecf0f1;
 `;
 
+const ConfirmModal = styled.div<{ $isOpen: boolean }>`
+  display: ${props => props.$isOpen ? 'flex' : 'none'};
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const ConfirmContent = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+`;
+
+const ConfirmTitle = styled.h3`
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 12px 0;
+`;
+
+const ConfirmText = styled.p`
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0 0 24px 0;
+  line-height: 1.6;
+`;
+
+const ConfirmButtons = styled.div`
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+`;
+
+const ConfirmBtn = styled.button<{ variant?: 'danger' | 'secondary' }>`
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  background: ${props => props.variant === 'danger' ? '#e74c3c' : '#ecf0f1'};
+  color: ${props => props.variant === 'danger' ? 'white' : '#2c3e50'};
+
+  &:hover {
+    background: ${props => props.variant === 'danger' ? '#c0392b' : '#d5dbdb'};
+  }
+`;
+
 interface Job {
   _id: string;
-  title: string;
-  company: string;
-  location: string;
-  category: string;
-  status: string;
-  salary_min?: number;
-  salary_max?: number;
-  applications_count: number;
-  views_count: number;
-  created_at: string;
-  expires_at?: string;
+  post_id: string;
+  vacancies_topost: Array<{
+    vacancy_id: string;
+    jobData: {
+      jobTitle: string;
+      jobDescription: string;
+      jobLocation: { city: string; country: string };
+      jobResponsibility: string[];
+    };
+    category: { name: string };
+    skills: string[];
+    salary: { minAmount: number; maxAmount: number; currency: string };
+    employer: string;
+    companyData: { companyName: string };
+    deadline: string;
+  }>;
+  post_status: string;
+  posted_date: string;
+  posted_by_name: string;
 }
 
 interface JobStats {
@@ -680,6 +747,9 @@ const JobMonitoring: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -702,64 +772,28 @@ const JobMonitoring: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const params: any = {
-        page: currentPage,
-        limit: itemsPerPage,
-      };
+      const response = await jobApi.get('/posts');
+      console.log('[JobMonitoring] API Response:', response.data);
 
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (categoryFilter !== 'all') params.category = categoryFilter;
-      if (locationFilter !== 'all') params.location = locationFilter;
-      if (searchQuery) params.search = searchQuery;
-
-      const response = await jobApi.get('/posts', { params });
-      console.log('[JobMonitoring] Full API Response:', response);
-      console.log('[JobMonitoring] Response Data:', response.data);
-      console.log('[JobMonitoring] Response Status:', response.status);
-      console.log('[JobMonitoring] Response Headers:', response.headers);
-
-      // Handle the response structure: { items: [...], ... }
-      let jobsData = [];
+      // Map API response to Job interface
+      let jobsData: Job[] = [];
       
       if (response.data?.items && Array.isArray(response.data.items)) {
         jobsData = response.data.items;
-        console.log('[JobMonitoring] ✓ Parsed from response.data.items, count:', jobsData.length);
       } else if (Array.isArray(response.data)) {
         jobsData = response.data;
-        console.log('[JobMonitoring] ✓ Parsed as direct array, count:', jobsData.length);
-      } else if (response.data?.jobs && Array.isArray(response.data.jobs)) {
-        jobsData = response.data.jobs;
-        console.log('[JobMonitoring] ✓ Parsed from response.data.jobs, count:', jobsData.length);
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        jobsData = response.data.data;
-        console.log('[JobMonitoring] ✓ Parsed from response.data.data, count:', jobsData.length);
-      } else if (response.data?.posts && Array.isArray(response.data.posts)) {
-        jobsData = response.data.posts;
-        console.log('[JobMonitoring] ✓ Parsed from response.data.posts, count:', jobsData.length);
-      } else {
-        // If no array found, default to empty array (don't crash)
-        jobsData = [];
-        console.log('[JobMonitoring] ⚠ No array found in response structure');
-        console.log('[JobMonitoring] Response keys:', Object.keys(response.data || {}));
       }
 
-      console.log('[JobMonitoring] Final jobs data:', jobsData);
       setJobs(jobsData);
-      setTotalPages(response.data.totalPages || response.data.pagination?.total_pages || 1);
+      setTotalPages(Math.ceil((response.data?.total || jobsData.length) / itemsPerPage));
     } catch (err: any) {
       console.error('Error loading jobs:', err);
       
-      // Handle 403 Forbidden specifically
+      // Handle 403 Forbidden with detailed error message
       if (err.response?.status === 403) {
-        if (isAdmin) {
-          setError(
-            'Access Denied: The Job Service is not recognizing your admin role. ' +
-            'This is a backend configuration issue. Please contact support. ' +
-            'Error: ' + handleApiError(err)
-          );
-        } else {
-          setError('You do not have permission to access job postings. ' + handleApiError(err));
-        }
+        const details = err.response?.data?.details;
+        const message = details?.message || 'Access Denied';
+        setError(message);
       } else {
         setError(handleApiError(err));
       }
@@ -810,13 +844,35 @@ const JobMonitoring: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleUpdateStatus = async (jobId: string, newStatus: string) => {
+  const handleDeleteClick = (postId: string) => {
+    setJobToDelete(postId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!jobToDelete) return;
+    
     try {
-      await jobApi.patch(`/posts/${jobId}/status`, { status: newStatus });
+      setDeleting(true);
+      await jobApi.delete(`/posts/${jobToDelete}`);
+      setDeleteConfirmOpen(false);
+      setJobToDelete(null);
       loadJobs();
-      loadStats();
     } catch (err: any) {
-      alert(handleApiError(err));
+      const message = err.response?.data?.message || handleApiError(err);
+      setError(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleUpdateStatus = async (postId: string, newStatus: string) => {
+    try {
+      await jobApi.patch(`/posts/${postId}`, { post_status: newStatus });
+      loadJobs();
+    } catch (err: any) {
+      const message = err.response?.data?.message || handleApiError(err);
+      setError(message);
     }
   };
 
@@ -1012,73 +1068,73 @@ const JobMonitoring: React.FC = () => {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {jobs.map((job) => (
-                    <Tr key={job._id}>
-                      <Td>
-                        <JobTitle>{job.title}</JobTitle>
-                        <JobMeta>
-                          {job.salary_min && job.salary_max && (
-                            <>
-                              <FiDollarSign size={12} />
-                              ${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()}
-                            </>
-                          )}
-                        </JobMeta>
-                      </Td>
-                      <Td>{job.company}</Td>
-                      <Td>
-                        <JobMeta>
-                          <FiMapPin size={12} />
-                          {job.location}
-                        </JobMeta>
-                      </Td>
-                      <Td>{job.category}</Td>
-                      <Td>
-                        <StatusBadge status={job.status}>
-                          {job.status === 'active' && <FiCheckCircle size={12} />}
-                          {job.status === 'closed' && <FiXCircle size={12} />}
-                          {job.status === 'expired' && <FiClock size={12} />}
-                          {job.status}
-                        </StatusBadge>
-                      </Td>
-                      <Td>
-                        <MetricBadge>
-                          <FiUsers size={12} style={{ marginRight: '4px' }} />
-                          {job.applications_count || 0}
-                        </MetricBadge>
-                      </Td>
-                      <Td>
-                        <MetricBadge>
-                          <FiEye size={12} style={{ marginRight: '4px' }} />
-                          {job.views_count || 0}
-                        </MetricBadge>
-                      </Td>
-                      <Td>{new Date(job.created_at).toLocaleDateString()}</Td>
-                      <Td>
-                        <ActionButtons>
-                          <IconButton onClick={() => handleViewJob(job)} title="View Details">
-                            <FiEye size={16} />
-                          </IconButton>
-                          {job.status === 'active' && (
-                            <IconButton
-                              onClick={() => handleUpdateStatus(job._id, 'closed')}
-                              title="Close Job"
+                  {jobs.map((job) => {
+                    const vacancy = job.vacancies_topost?.[0];
+                    if (!vacancy) return null;
+                    
+                    const jobData = vacancy.jobData;
+                    const salary = vacancy.salary;
+                    const location = jobData.jobLocation;
+                    
+                    return (
+                      <Tr key={job._id}>
+                        <Td>
+                          <JobTitle>{jobData.jobTitle}</JobTitle>
+                          <JobMeta>
+                            {salary?.minAmount && salary?.maxAmount && (
+                              <>
+                                <FiDollarSign size={12} />
+                                {salary.currency} {salary.minAmount.toLocaleString()} - {salary.maxAmount.toLocaleString()}
+                              </>
+                            )}
+                          </JobMeta>
+                        </Td>
+                        <Td>{vacancy.companyData?.companyName || vacancy.employer}</Td>
+                        <Td>
+                          <JobMeta>
+                            <FiMapPin size={12} />
+                            {location?.city}, {location?.country}
+                          </JobMeta>
+                        </Td>
+                        <Td>{vacancy.category?.name}</Td>
+                        <Td>
+                          <StatusBadge status={job.post_status}>
+                            {job.post_status === 'active' && <FiCheckCircle size={12} />}
+                            {job.post_status === 'closed' && <FiXCircle size={12} />}
+                            {job.post_status === 'expired' && <FiClock size={12} />}
+                            {job.post_status}
+                          </StatusBadge>
+                        </Td>
+                        <Td>
+                          <MetricBadge>
+                            <FiUsers size={12} style={{ marginRight: '4px' }} />
+                            0
+                          </MetricBadge>
+                        </Td>
+                        <Td>
+                          <MetricBadge>
+                            <FiEye size={12} style={{ marginRight: '4px' }} />
+                            0
+                          </MetricBadge>
+                        </Td>
+                        <Td>{new Date(job.posted_date).toLocaleDateString()}</Td>
+                        <Td>
+                          <ActionButtons>
+                            <IconButton onClick={() => handleViewJob(job)} title="View Details">
+                              <FiEye size={16} />
+                            </IconButton>
+                            <IconButton 
+                              onClick={() => handleDeleteClick(job.post_id)} 
+                              title="Delete Job"
+                              style={{ color: '#e74c3c' }}
                             >
                               <FiXCircle size={16} />
                             </IconButton>
-                          )}
-                          {job.status === 'closed' && (
-                            <IconButton
-                              onClick={() => handleUpdateStatus(job._id, 'active')}
-                              title="Reopen Job"
-                            >
-                              <FiCheckCircle size={16} />
-                            </IconButton>
-                          )}
-                        </ActionButtons>
-                      </Td>
-                    </Tr>
-                  ))}
+                          </ActionButtons>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </Tbody>
               </Table>
             </TableWrapper>
@@ -1129,112 +1185,161 @@ const JobMonitoring: React.FC = () => {
               <FiX size={24} />
             </CloseButton>
           </ModalHeader>
-          {selectedJob && (
+          {selectedJob && selectedJob.vacancies_topost?.[0] && (
             <>
-              <ModalSection>
-                <ModalSectionTitle>
-                  <FiBriefcase size={16} />
-                  Basic Information
-                </ModalSectionTitle>
-                <ModalGrid>
-                  <ModalField>
-                    <ModalFieldLabel>Job ID</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob._id}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Title</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.title}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Company</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.company}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Location</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.location}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Category</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.category}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Status</ModalFieldLabel>
-                    <ModalFieldValue>
-                      <StatusBadge status={selectedJob.status}>
-                        {selectedJob.status === 'active' && <FiCheckCircle size={12} style={{ marginRight: '4px' }} />}
-                        {selectedJob.status === 'closed' && <FiXCircle size={12} style={{ marginRight: '4px' }} />}
-                        {selectedJob.status === 'expired' && <FiClock size={12} style={{ marginRight: '4px' }} />}
-                        {selectedJob.status}
-                      </StatusBadge>
-                    </ModalFieldValue>
-                  </ModalField>
-                </ModalGrid>
-              </ModalSection>
+              {(() => {
+                const vacancy = selectedJob.vacancies_topost[0];
+                const jobData = vacancy.jobData;
+                const salary = vacancy.salary;
+                
+                return (
+                  <>
+                    <ModalSection>
+                      <ModalSectionTitle>
+                        <FiBriefcase size={16} />
+                        Basic Information
+                      </ModalSectionTitle>
+                      <ModalGrid>
+                        <ModalField>
+                          <ModalFieldLabel>Job Title</ModalFieldLabel>
+                          <ModalFieldValue>{jobData.jobTitle}</ModalFieldValue>
+                        </ModalField>
+                        <ModalField>
+                          <ModalFieldLabel>Company</ModalFieldLabel>
+                          <ModalFieldValue>{vacancy.companyData?.companyName || vacancy.employer}</ModalFieldValue>
+                        </ModalField>
+                        <ModalField>
+                          <ModalFieldLabel>Location</ModalFieldLabel>
+                          <ModalFieldValue>{jobData.jobLocation?.city}, {jobData.jobLocation?.country}</ModalFieldValue>
+                        </ModalField>
+                        <ModalField>
+                          <ModalFieldLabel>Category</ModalFieldLabel>
+                          <ModalFieldValue>{vacancy.category?.name}</ModalFieldValue>
+                        </ModalField>
+                        <ModalField>
+                          <ModalFieldLabel>Status</ModalFieldLabel>
+                          <ModalFieldValue>
+                            <StatusBadge status={selectedJob.post_status}>
+                              {selectedJob.post_status}
+                            </StatusBadge>
+                          </ModalFieldValue>
+                        </ModalField>
+                      </ModalGrid>
+                    </ModalSection>
 
-              <ModalSection>
-                <ModalSectionTitle>
-                  <FiDollarSign size={16} />
-                  Salary & Compensation
-                </ModalSectionTitle>
-                <ModalGrid>
-                  <ModalField>
-                    <ModalFieldLabel>Salary Range</ModalFieldLabel>
-                    <ModalFieldValue>
-                      {selectedJob.salary_min && selectedJob.salary_max
-                        ? `$${selectedJob.salary_min.toLocaleString()} - $${selectedJob.salary_max.toLocaleString()}`
-                        : 'Not specified'}
-                    </ModalFieldValue>
-                  </ModalField>
-                </ModalGrid>
-              </ModalSection>
+                    <ModalSection>
+                      <ModalSectionTitle>
+                        <FiDollarSign size={16} />
+                        Salary & Compensation
+                      </ModalSectionTitle>
+                      <ModalGrid>
+                        <ModalField>
+                          <ModalFieldLabel>Salary Range</ModalFieldLabel>
+                          <ModalFieldValue>
+                            {salary?.minAmount && salary?.maxAmount
+                              ? `${salary.currency} ${salary.minAmount.toLocaleString()} - ${salary.maxAmount.toLocaleString()}`
+                              : 'Not specified'}
+                          </ModalFieldValue>
+                        </ModalField>
+                      </ModalGrid>
+                    </ModalSection>
 
-              <ModalSection>
-                <ModalSectionTitle>
-                  <FiBarChart2 size={16} />
-                  Performance Metrics
-                </ModalSectionTitle>
-                <ModalGrid>
-                  <ModalField>
-                    <ModalFieldLabel>Applications</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.applications_count || 0}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Views</ModalFieldLabel>
-                    <ModalFieldValue>{selectedJob.views_count || 0}</ModalFieldValue>
-                  </ModalField>
-                  <ModalField>
-                    <ModalFieldLabel>Conversion Rate</ModalFieldLabel>
-                    <ModalFieldValue>
-                      {selectedJob.views_count > 0
-                        ? `${((selectedJob.applications_count / selectedJob.views_count) * 100).toFixed(1)}%`
-                        : 'N/A'}
-                    </ModalFieldValue>
-                  </ModalField>
-                </ModalGrid>
-              </ModalSection>
+                    <ModalSection>
+                      <ModalSectionTitle>
+                        <FiBarChart2 size={16} />
+                        Job Description
+                      </ModalSectionTitle>
+                      <ModalFieldValue style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                        {jobData.jobDescription}
+                      </ModalFieldValue>
+                    </ModalSection>
 
-              <ModalSection>
-                <ModalSectionTitle>
-                  <FiClock size={16} />
-                  Timeline
-                </ModalSectionTitle>
-                <ModalGrid>
-                  <ModalField>
-                    <ModalFieldLabel>Posted</ModalFieldLabel>
-                    <ModalFieldValue>{new Date(selectedJob.created_at).toLocaleString()}</ModalFieldValue>
-                  </ModalField>
-                  {selectedJob.expires_at && (
-                    <ModalField>
-                      <ModalFieldLabel>Expires</ModalFieldLabel>
-                      <ModalFieldValue>{new Date(selectedJob.expires_at).toLocaleString()}</ModalFieldValue>
-                    </ModalField>
-                  )}
-                </ModalGrid>
-              </ModalSection>
+                    {jobData.jobResponsibility && jobData.jobResponsibility.length > 0 && (
+                      <ModalSection>
+                        <ModalSectionTitle>
+                          <FiCheckCircle size={16} />
+                          Responsibilities
+                        </ModalSectionTitle>
+                        <ul style={{ margin: '0', paddingLeft: '20px', color: '#2c3e50' }}>
+                          {jobData.jobResponsibility.map((resp, idx) => (
+                            <li key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
+                              {resp}
+                            </li>
+                          ))}
+                        </ul>
+                      </ModalSection>
+                    )}
+
+                    {vacancy.skills && vacancy.skills.length > 0 && (
+                      <ModalSection>
+                        <ModalSectionTitle>
+                          <FiUsers size={16} />
+                          Required Skills
+                        </ModalSectionTitle>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {vacancy.skills.map((skill, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                background: '#e8f4f8',
+                                color: '#0c5460',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600'
+                              }}
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </ModalSection>
+                    )}
+
+                    <ModalSection>
+                      <ModalSectionTitle>
+                        <FiClock size={16} />
+                        Timeline
+                      </ModalSectionTitle>
+                      <ModalGrid>
+                        <ModalField>
+                          <ModalFieldLabel>Posted</ModalFieldLabel>
+                          <ModalFieldValue>{new Date(selectedJob.posted_date).toLocaleString()}</ModalFieldValue>
+                        </ModalField>
+                        <ModalField>
+                          <ModalFieldLabel>Deadline</ModalFieldLabel>
+                          <ModalFieldValue>{new Date(vacancy.deadline).toLocaleString()}</ModalFieldValue>
+                        </ModalField>
+                      </ModalGrid>
+                    </ModalSection>
+                  </>
+                );
+              })()}
             </>
           )}
         </ModalContent>
       </Modal>
+
+      <ConfirmModal $isOpen={deleteConfirmOpen}>
+        <ConfirmContent>
+          <ConfirmTitle>Delete Job Post?</ConfirmTitle>
+          <ConfirmText>
+            Are you sure you want to delete this job post? This action cannot be undone.
+          </ConfirmText>
+          <ConfirmButtons>
+            <ConfirmBtn onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </ConfirmBtn>
+            <ConfirmBtn 
+              variant="danger" 
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </ConfirmBtn>
+          </ConfirmButtons>
+        </ConfirmContent>
+      </ConfirmModal>
     </Container>
   );
 };
