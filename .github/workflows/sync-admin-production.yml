@@ -81,13 +81,13 @@ jobs:
 
       - name: Transfer to jumphost
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" scp -P ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" scp -P ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 \
             admin-dashboard-prod.tar.gz \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }}:~/
 
       - name: Extract and setup on server
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
               echo 'Admin@2025' | sudo -S mkdir -p ${{ env.DEPLOYMENT_PATH }}
               echo 'Admin@2025' | sudo -S chown startupadmin:startupadmin ${{ env.DEPLOYMENT_PATH }}
@@ -102,7 +102,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
               cd ${{ env.DEPLOYMENT_PATH }}
               echo 'Admin@2025' | sudo -S docker builder prune -af
@@ -113,7 +113,7 @@ jobs:
 
       - name: Deploy container
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
               echo 'Admin@2025' | sudo -S docker stop ${{ env.SERVICE_NAME }} 2>/dev/null || true
               echo 'Admin@2025' | sudo -S docker rm -f ${{ env.SERVICE_NAME }} 2>/dev/null || true
@@ -129,14 +129,14 @@ jobs:
 
       - name: Reload NGINX
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
-              echo 'Admin@2025' | sudo -S systemctl reload nginx
+              echo 'Admin@2025' | sudo -S nginx -t && echo 'Admin@2025' | sudo -S systemctl reload nginx || echo 'Admin@2025' | sudo -S systemctl restart nginx
             "
 
       - name: Verify deployment
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
               echo '=== Container Status ==='
               docker ps --filter name=${{ env.SERVICE_NAME }} --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
@@ -150,7 +150,7 @@ jobs:
 
       - name: Cleanup old images and backups
         run: |
-          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no \
+          sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 \
             ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
               docker images ${{ env.SERVICE_NAME }} --format '{{.ID}} {{.CreatedAt}}' | sort -rk 2 | tail -n +4 | awk '{print \$1}' | xargs -r docker rmi 2>/dev/null || true
               docker image prune -f
