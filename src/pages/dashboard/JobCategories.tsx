@@ -2,7 +2,7 @@
 import styled, { keyframes, css } from "styled-components";
 import {
   FiPlus, FiTrash2, FiEdit2, FiRefreshCw, FiSearch,
-  FiFilter, FiTag, FiImage, FiX, FiCheck, FiAlertTriangle,
+  FiTag, FiImage, FiX, FiCheck, FiAlertTriangle,
 } from "react-icons/fi";
 import { useAppDispatch, useAppSelector } from "../../store/store";
 import {

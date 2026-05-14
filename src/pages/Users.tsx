@@ -46,9 +46,6 @@ import {
   People,
   PersonAdd,
   Business,
-  LocationOn,
-  Phone,
-  Email,
   CheckCircle,
 } from "@mui/icons-material";
 import Sidebar from "../common/Sidebar";

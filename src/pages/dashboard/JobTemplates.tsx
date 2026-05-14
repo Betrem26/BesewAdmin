@@ -1,12 +1,10 @@
-﻿import React, { useEffect, useState, useCallback, useRef } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import styled, { keyframes, css } from "styled-components";
 import {
   FiZap, FiList, FiPlus, FiEdit2, FiTrash2, FiRefreshCw,
   FiSearch, FiX, FiCheck, FiAlertTriangle, FiShield,
-  FiCopy, FiEye, FiChevronDown, FiChevronUp, FiFileText,
+  FiCopy, FiChevronDown, FiChevronUp, FiFileText,
 } from "react-icons/fi";
-import { useSelector } from "react-redux";
-import { RootState } from "../../store/store";
 import { jobApi, handleApiError } from "../../services/api";
 import { toast } from "react-toastify";
 
@@ -50,7 +48,6 @@ const fadeIn  = keyframes`from{opacity:0;transform:translateY(8px)}to{opacity:1;
 const shimmer = keyframes`0%{background-position:-400px 0}100%{background-position:400px 0}`;
 const spin    = keyframes`from{transform:rotate(0deg)}to{transform:rotate(360deg)}`;
 const pulse   = keyframes`0%,100%{opacity:1}50%{opacity:0.5}`;
-const typing  = keyframes`from{width:0}to{width:100%}`;
 
 // ── Layout ─────────────────────────────────────────────────────────────────
 const Page = styled.div`max-width:1400px;animation:${fadeIn} 0.3s ease;`;
@@ -239,8 +236,6 @@ const EMPTY_FORM: EditForm = {
 };
 
 const JobTemplates: React.FC = () => {
-  const accessToken = useSelector((state: RootState) => state.user.accessToken);
-
   // AI Generator state
   const [aiTitle,      setAiTitle]      = useState("");
   const [aiStatus,     setAiStatus]     = useState<FetchStatus>("idle");

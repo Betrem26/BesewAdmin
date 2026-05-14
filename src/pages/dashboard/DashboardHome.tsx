@@ -9,7 +9,7 @@ import { customerSupportApi, SupportTicket } from '../../services/customerSuppor
 import { accountReportsApi, AccountReport } from '../../services/accountReportsApi';
 import PartyStatsPanel from '../../components/charts/PartyStatsPanel';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine
 } from 'recharts';
 
@@ -677,8 +677,6 @@ const StatusPill = styled.span<{ $active: boolean }>`
   color: ${p => p.$active ? '#27ae60' : '#7f8c8d'};
   text-transform: capitalize;
 `;
-const ViewLink = styled.button`background: none; border: none; color: #3498db; font-size: 12px; cursor: pointer; padding: 0; &:hover { text-decoration: underline; }`;
-
 // Pie
 const PieWrap = styled.div`display: flex; align-items: center; gap: 24px; flex-wrap: wrap;`;
 const PieEmpty = styled.div`color: #bdc3c7; font-size: 14px; padding: 20px;`;

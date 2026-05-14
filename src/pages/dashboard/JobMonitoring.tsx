@@ -626,19 +626,6 @@ const ErrorAlert = styled.div`
   font-size: 14px;
 `;
 
-const SuccessAlert = styled.div`
-  background: #d4edda;
-  border: 1px solid #c3e6cb;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 0 24px 24px 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #155724;
-  font-size: 14px;
-`;
-
 const Thead = styled.thead`
   background: #f8f9fa;
 `;

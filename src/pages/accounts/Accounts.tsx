@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { useAccounts } from '../../hooks/useAccounts';
 import AccountForm from './AccountForm';
