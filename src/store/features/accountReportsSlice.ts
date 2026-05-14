@@ -15,7 +15,6 @@ const initialState: AccountReportsState = {
   error: null,
 };
 
-// Async thunks
 export const fetchReports = createAsyncThunk(
   'accountReports/fetchReports',
   async () => {
@@ -34,7 +33,7 @@ export const fetchReportById = createAsyncThunk(
 
 export const updateReportStatus = createAsyncThunk(
   'accountReports/updateReportStatus',
-  async ({ id, data }: { id: string; data: { status: 'pending' | 'under_review' | 'resolved' | 'dismissed'; adminNotes?: string } }) => {
+  async ({ id, data }: { id: string; data: { status: 'pending' | 'in_progress' | 'resolved' | 'dismissed' | 'in_mediation'; adminNotes?: string } }) => {
     const response = await accountReportsApi.updateReportStatus(id, data);
     return response;
   }
@@ -61,67 +60,27 @@ const accountReportsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Fetch reports
-      .addCase(fetchReports.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchReports.fulfilled, (state, action) => {
-        state.loading = false;
-        state.reports = action.payload;
-      })
-      .addCase(fetchReports.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch reports';
-      })
-      // Fetch report by ID
-      .addCase(fetchReportById.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchReportById.fulfilled, (state, action) => {
-        state.loading = false;
-        state.selectedReport = action.payload;
-      })
-      .addCase(fetchReportById.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch report';
-      })
-      // Update report status
-      .addCase(updateReportStatus.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(fetchReports.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchReports.fulfilled, (state, action) => { state.loading = false; state.reports = action.payload; })
+      .addCase(fetchReports.rejected, (state, action) => { state.loading = false; state.error = action.error.message || 'Failed to fetch reports'; })
+      .addCase(fetchReportById.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchReportById.fulfilled, (state, action) => { state.loading = false; state.selectedReport = action.payload; })
+      .addCase(fetchReportById.rejected, (state, action) => { state.loading = false; state.error = action.error.message || 'Failed to fetch report'; })
+      .addCase(updateReportStatus.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(updateReportStatus.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.reports.findIndex(r => r._id === action.payload._id);
-        if (index !== -1) {
-          state.reports[index] = action.payload;
-        }
-        if (state.selectedReport?._id === action.payload._id) {
-          state.selectedReport = action.payload;
-        }
+        const index = state.reports.findIndex(r => r.id === action.payload.id);
+        if (index !== -1) state.reports[index] = action.payload;
+        if (state.selectedReport?.id === action.payload.id) state.selectedReport = action.payload;
       })
-      .addCase(updateReportStatus.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to update report status';
-      })
-      // Delete report
-      .addCase(deleteReport.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      .addCase(updateReportStatus.rejected, (state, action) => { state.loading = false; state.error = action.error.message || 'Failed to update report status'; })
+      .addCase(deleteReport.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(deleteReport.fulfilled, (state, action) => {
         state.loading = false;
-        state.reports = state.reports.filter(r => r._id !== action.payload);
-        if (state.selectedReport?._id === action.payload) {
-          state.selectedReport = null;
-        }
+        state.reports = state.reports.filter(r => r.id !== action.payload);
+        if (state.selectedReport?.id === action.payload) state.selectedReport = null;
       })
-      .addCase(deleteReport.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to delete report';
-      });
+      .addCase(deleteReport.rejected, (state, action) => { state.loading = false; state.error = action.error.message || 'Failed to delete report'; });
   },
 });
 

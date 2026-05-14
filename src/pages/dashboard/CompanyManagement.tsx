@@ -10,8 +10,7 @@ import {
   FiAlertCircle,
   FiCheckCircle,
   FiUsers,
-  FiTrash2,
-  FiX
+  FiTrash2
 } from 'react-icons/fi';
 import { handleApiError } from '../../services/api';
 import platformAdminApi from '../../services/platformAdminApi';

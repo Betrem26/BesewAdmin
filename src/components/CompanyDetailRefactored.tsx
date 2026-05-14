@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
   FiX, FiCheck, FiAlertCircle, FiBriefcase, FiCheckCircle, FiXCircle,
@@ -724,7 +724,6 @@ const CompanyDetailRefactored: React.FC<Props> = ({ isOpen, company, onClose, on
   const [showLogoEdit, setShowLogoEdit] = useState(false);
   const [logoUrl, setLogoUrl] = useState('');
   const [logoLoading, setLogoLoading] = useState(false);
-  const [localCompany, setLocalCompany] = useState<Company | null>(company);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -768,13 +767,10 @@ const CompanyDetailRefactored: React.FC<Props> = ({ isOpen, company, onClose, on
       const companyId = company.company_id || company._id;
       
       // Update via platform admin API
-      const response = await platformAdminApi.updateCompany(companyId, {
+      await platformAdminApi.updateCompany(companyId, {
         logo: logoUrl.trim()
       });
 
-      // Update local state immediately
-      setLocalCompany(prev => prev ? { ...prev, logo: logoUrl.trim() } : null);
-      
       setMessage({ type: 'success', text: 'Logo updated successfully!' });
       setShowLogoEdit(false);
       

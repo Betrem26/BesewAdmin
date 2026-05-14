@@ -1,5 +1,5 @@
 ﻿// Job Category API Service
-import { jobApi, API_ENDPOINTS, handleApiError } from "./api";
+import { jobApi, API_ENDPOINTS } from "./api";
 
 // ── Types matching the real API response ─────────────────────────────────
 

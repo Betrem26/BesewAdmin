@@ -639,10 +639,6 @@ const SuccessAlert = styled.div`
   font-size: 14px;
 `;
 
-const TableWrapper = styled.div`
-  overflow-x: auto;
-`;
-
 const Thead = styled.thead`
   background: #f8f9fa;
 `;
@@ -732,29 +728,32 @@ const JobMonitoring: React.FC = () => {
       const response = await jobApi.get('/posts', { params });
       console.log('[JobMonitoring] Full API Response:', response);
       console.log('[JobMonitoring] Response Data:', response.data);
+      console.log('[JobMonitoring] Response Status:', response.status);
+      console.log('[JobMonitoring] Response Headers:', response.headers);
 
       // Handle the response structure: { items: [...], ... }
       let jobsData = [];
       
       if (response.data?.items && Array.isArray(response.data.items)) {
         jobsData = response.data.items;
-        console.log('[JobMonitoring] Parsed from response.data.items, count:', jobsData.length);
+        console.log('[JobMonitoring] ✓ Parsed from response.data.items, count:', jobsData.length);
       } else if (Array.isArray(response.data)) {
         jobsData = response.data;
-        console.log('[JobMonitoring] Parsed as direct array, count:', jobsData.length);
+        console.log('[JobMonitoring] ✓ Parsed as direct array, count:', jobsData.length);
       } else if (response.data?.jobs && Array.isArray(response.data.jobs)) {
         jobsData = response.data.jobs;
-        console.log('[JobMonitoring] Parsed from response.data.jobs, count:', jobsData.length);
+        console.log('[JobMonitoring] ✓ Parsed from response.data.jobs, count:', jobsData.length);
       } else if (response.data?.data && Array.isArray(response.data.data)) {
         jobsData = response.data.data;
-        console.log('[JobMonitoring] Parsed from response.data.data, count:', jobsData.length);
+        console.log('[JobMonitoring] ✓ Parsed from response.data.data, count:', jobsData.length);
       } else if (response.data?.posts && Array.isArray(response.data.posts)) {
         jobsData = response.data.posts;
-        console.log('[JobMonitoring] Parsed from response.data.posts, count:', jobsData.length);
+        console.log('[JobMonitoring] ✓ Parsed from response.data.posts, count:', jobsData.length);
       } else {
         // If no array found, default to empty array (don't crash)
         jobsData = [];
-        console.log('[JobMonitoring] No array found in response, defaulting to empty array');
+        console.log('[JobMonitoring] ⚠ No array found in response structure');
+        console.log('[JobMonitoring] Response keys:', Object.keys(response.data || {}));
       }
 
       console.log('[JobMonitoring] Final jobs data:', jobsData);
@@ -886,19 +885,6 @@ const JobMonitoring: React.FC = () => {
           </Button>
         </HeaderActions>
       </PageHeader>
-
-      {isAdmin && (
-        <WarningMessage>
-          <FiAlertCircle size={20} />
-          <WarningContent>
-            <WarningTitle>Admin Access Notice</WarningTitle>
-            <WarningText>
-              You are accessing this as an admin. If you see a 403 error below, the Job Service backend 
-              needs to be configured to recognize admin roles. Contact your system administrator.
-            </WarningText>
-          </WarningContent>
-        </WarningMessage>
-      )}
 
       {error && (
         <ErrorAlert>

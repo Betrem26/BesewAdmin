@@ -6,7 +6,6 @@ import { accountReportsApi, AccountRating } from '../../services/accountReportsA
 import { partyApi } from '../../services/api';
 import UserProfileModal from '../../components/UserProfileModal';
 import { toast } from 'react-toastify';
-import GrowthChart from '../../components/charts/GrowthChart';
 import RegistrationTrendsCard from '../../components/charts/RegistrationTrendsCard';
 
 const UserManagementEnhanced: React.FC = () => {
@@ -23,8 +22,6 @@ const UserManagementEnhanced: React.FC = () => {
   const [searchType, setSearchType] = useState<'all' | 'name' | 'email' | 'phone' | 'id'>('all');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalPhone, setModalPhone] = useState<string | null>(null);
-  const [modalPhoneLoading, setModalPhoneLoading] = useState(false);
   const [partyTypeFilter, setPartyTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -551,7 +548,6 @@ const PhoneResultInfo = styled.div`flex: 1; min-width: 150px;`;
 const PhoneResultMeta = styled.div`display: flex; gap: 8px; align-items: center;`;
 const PhoneResultActions = styled.div`display: flex; gap: 6px;`;
 const PhoneNumber = styled.div`font-size: 13px; color: #3498db; font-weight: 500; margin-top: 2px;`;
-const PhoneNote = styled.div`font-size: 12px; color: #95a5a6; margin-top: 10px;`;
 const FiltersCard = styled.div`
   background: #fff;
   border-radius: 16px;
