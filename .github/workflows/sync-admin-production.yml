@@ -68,11 +68,7 @@ jobs:
 
       - name: Create deployment package
         run: |
-          mkdir -p deployment-package
-          cp -r dist deployment-package/
-          cp Dockerfile deployment-package/
-          cp nginx.conf deployment-package/ 2>/dev/null || true
-          tar -czf /tmp/admin-dashboard-prod.tar.gz -C deployment-package .
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf /tmp/admin-dashboard-prod.tar.gz .
           mv /tmp/admin-dashboard-prod.tar.gz ./admin-dashboard-prod.tar.gz
           ls -lh admin-dashboard-prod.tar.gz
 
