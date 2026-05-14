@@ -4,9 +4,9 @@ on:
   push:
     branches:
       - develop
-    paths:
-      - 'apps/admin/bswadminfront/**'
-      - '.github/workflows/sync-admin-staging.yml'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 env:
   JUMPHOST_IP: "197.156.110.145"
@@ -28,7 +28,7 @@ jobs:
 
       - name: Create archive
         run: |
-          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz -C apps/admin bswadminfront
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz .
           ls -lh admin-dashboard-staging.tar.gz
 
       - name: Install SSH tools
