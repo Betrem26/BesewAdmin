@@ -28,7 +28,8 @@ jobs:
 
       - name: Create archive
         run: |
-          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf admin-dashboard-staging.tar.gz .
+          tar --exclude='node_modules' --exclude='.git' --exclude='*.log' --exclude='dist' --exclude='.next' --exclude='out' --exclude='*.tar.gz' -czf /tmp/admin-dashboard-staging.tar.gz .
+          mv /tmp/admin-dashboard-staging.tar.gz ./admin-dashboard-staging.tar.gz
           ls -lh admin-dashboard-staging.tar.gz
 
       - name: Install SSH tools
