@@ -79,7 +79,7 @@ jobs:
       - name: Reload NGINX
         run: |
           sshpass -p "${{ env.JUMPHOST_PASSWORD }}" ssh -p ${{ env.JUMPHOST_PORT }} -o StrictHostKeyChecking=no ${{ env.JUMPHOST_USER }}@${{ env.JUMPHOST_IP }} "
-            echo 'Admin@2025' | sudo -S systemctl reload nginx
+            echo 'Admin@2025' | sudo -S nginx -t && echo 'Admin@2025' | sudo -S systemctl reload nginx || echo 'Admin@2025' | sudo -S systemctl restart nginx
           "
 
       - name: Verify deployment
