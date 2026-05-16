@@ -48,11 +48,11 @@ export const useAccounts = () => {
     }
   };
 
-  const promoteToAdmin = async (partyId: string) => {
+  const promoteToAdmin = async (partyId: string, reason: string = '', mfa_challenge_id: string = '') => {
     setLoading(true);
     setError(null);
     try {
-      const updated = await accountsApi.promoteToAdmin(partyId);
+      const updated = await accountsApi.promoteToAdmin(partyId, reason, mfa_challenge_id);
       setAccounts(prev => prev.map(acc => acc.party_id === partyId ? { ...acc, ...updated } : acc));
       return updated;
     } catch (err: any) {
@@ -63,11 +63,11 @@ export const useAccounts = () => {
     }
   };
 
-  const demoteToUser = async (partyId: string) => {
+  const demoteToUser = async (partyId: string, reason: string = '', mfa_challenge_id: string = '') => {
     setLoading(true);
     setError(null);
     try {
-      const updated = await accountsApi.demoteToUser(partyId);
+      const updated = await accountsApi.demoteToUser(partyId, reason, mfa_challenge_id);
       setAccounts(prev => prev.map(acc => acc.party_id === partyId ? { ...acc, ...updated } : acc));
       return updated;
     } catch (err: any) {

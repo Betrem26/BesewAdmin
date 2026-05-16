@@ -17,8 +17,30 @@ export const menuConfigApi = {
   },
 
   updateMenuConfig: async (menuId: string, data: any) => {
-    const response = await accountApi.put(`/api/v1/menu-config/${menuId}`, data);
-    return response.data;
+    try {
+      console.log('Sending PUT request to update menu:', {
+        url: `/api/v1/menu-config/${menuId}`,
+        payload: data,
+        payloadKeys: Object.keys(data),
+        payloadTypes: Object.entries(data).reduce((acc, [key, val]) => {
+          acc[key] = typeof val;
+          return acc;
+        }, {} as Record<string, string>)
+      });
+      const response = await accountApi.put(`/api/v1/menu-config/${menuId}`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Menu Config Update Error:', {
+        menuId,
+        data,
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        details: error.response?.data?.details,
+        error: error.response?.data,
+        fullResponse: error.response
+      });
+      throw error;
+    }
   },
 
   deleteMenuConfig: async (menuId: string) => {

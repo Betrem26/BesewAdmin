@@ -38,7 +38,7 @@ const UserManagement: React.FC = () => {
 
   const handlePromote = async (partyId: string) => {
     try {
-      await accountsApi.promoteToAdmin(partyId);
+      await accountsApi.promoteToAdmin(partyId, '', '');
       setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'admin' } : a));
       toast.success('User promoted to admin');
     } catch (error: any) {
@@ -48,7 +48,7 @@ const UserManagement: React.FC = () => {
 
   const handleDemote = async (partyId: string) => {
     try {
-      await accountsApi.demoteToUser(partyId);
+      await accountsApi.demoteToUser(partyId, '', '');
       setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'user' } : a));
       toast.success('Admin demoted to user');
     } catch (error: any) {

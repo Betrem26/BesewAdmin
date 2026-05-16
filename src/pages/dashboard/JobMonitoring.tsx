@@ -7,7 +7,6 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiRefreshCw,
-  FiTrendingUp,
   FiUsers,
   FiAlertCircle,
   FiFilter,
@@ -18,9 +17,7 @@ import {
   FiBarChart2
 } from 'react-icons/fi';
 import { jobApi, handleApiError } from '../../services/api';
-import monitoringApi from '../../services/monitoringApi';
-import JobMarketOverview from '../../components/charts/JobMarketOverview';
-import { useJobServiceAuth } from '../../hooks/useJobServiceAuth';
+import { jobMonitoringApi } from '../../services/monitoringApi';
 
 const Container = styled.div`
   max-width: 1800px;
@@ -340,6 +337,7 @@ const StatusBadge = styled.span<{ status: string }>`
   background: ${props => {
     switch (props.status) {
       case 'active': return '#d4edda';
+      case 'posted': return '#d4edda';
       case 'closed': return '#f8d7da';
       case 'expired': return '#fff3cd';
       case 'draft': return '#e2e3e5';
@@ -349,6 +347,7 @@ const StatusBadge = styled.span<{ status: string }>`
   color: ${props => {
     switch (props.status) {
       case 'active': return '#155724';
+      case 'posted': return '#155724';
       case 'closed': return '#721c24';
       case 'expired': return '#856404';
       case 'draft': return '#383d41';
@@ -414,11 +413,11 @@ const PageButtons = styled.div`
   gap: 8px;
 `;
 
-const PageButton = styled.button<{ active?: boolean }>`
+const PageButton = styled.button<{ $active?: boolean }>`
   padding: 8px 12px;
-  border: 1px solid ${props => props.active ? '#3498db' : '#ddd'};
-  background: ${props => props.active ? '#3498db' : 'white'};
-  color: ${props => props.active ? 'white' : '#2c3e50'};
+  border: 1px solid ${props => props.$active ? '#3498db' : '#ddd'};
+  background: ${props => props.$active ? '#3498db' : 'white'};
+  color: ${props => props.$active ? 'white' : '#2c3e50'};
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -426,7 +425,7 @@ const PageButton = styled.button<{ active?: boolean }>`
   transition: all 0.2s;
 
   &:hover:not(:disabled) {
-    background: ${props => props.active ? '#2980b9' : '#f8f9fa'};
+    background: ${props => props.$active ? '#2980b9' : '#f8f9fa'};
     border-color: #3498db;
   }
 
@@ -632,15 +631,6 @@ const Thead = styled.thead`
 
 const Tbody = styled.tbody``;
 
-const OverviewSection = styled.div`
-  background: white;
-  border-radius: 12px;
-  padding: 28px;
-  margin: 0 24px 32px 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid #ecf0f1;
-`;
-
 const ConfirmModal = styled.div<{ $isOpen: boolean }>`
   display: ${props => props.$isOpen ? 'flex' : 'none'};
   position: fixed;
@@ -700,27 +690,155 @@ const ConfirmBtn = styled.button<{ variant?: 'danger' | 'secondary' }>`
   }
 `;
 
+const PipelineWrap = styled.div`
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 0 24px 24px 24px;
+  border: 1px solid #ecf0f1;
+`;
+
+const PipelineTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const FunnelList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const FunnelRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const FunnelMeta = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const FunnelLabel = styled.span<{ $color: string }>`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${p => p.$color};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const FunnelCount = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #2c3e50;
+`;
+
+const FunnelPct = styled.span`
+  font-size: 11px;
+  color: #94a3b8;
+`;
+
+const BarTrack = styled.div`
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+`;
+
+const BarFill = styled.div<{ $pct: number; $color: string }>`
+  height: 100%;
+  width: ${p => p.$pct}%;
+  background: ${p => p.$color};
+  border-radius: 99px;
+  animation: fillBar 0.8s ease-out both;
+
+  @keyframes fillBar {
+    from {
+      width: 0%;
+    }
+  }
+`;
+
+const SummaryRow = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+`;
+
+const SummaryChip = styled.div<{ $bg: string; $color: string }>`
+  background: ${p => p.$bg};
+  color: ${p => p.$color};
+  border-radius: 10px;
+  padding: 10px 16px;
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const ChipVal = styled.div`
+  font-size: 24px;
+  font-weight: 800;
+`;
+
+const ChipLabel = styled.div`
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+`;
+
 interface Job {
-  _id: string;
-  post_id: string;
-  vacancies_topost: Array<{
-    vacancy_id: string;
-    jobData: {
-      jobTitle: string;
-      jobDescription: string;
-      jobLocation: { city: string; country: string };
-      jobResponsibility: string[];
-    };
-    category: { name: string };
-    skills: string[];
-    salary: { minAmount: number; maxAmount: number; currency: string };
-    employer: string;
-    companyData: { companyName: string };
-    deadline: string;
-  }>;
-  post_status: string;
-  posted_date: string;
+  vacancy_id: string;
+  title: string;
+  status: string;
+  verified: boolean;
+  posted: boolean;
+  deadline: string;
+  filled: boolean;
+  archived: boolean;
   posted_by_name: string;
+  logo?: string;
+  source?: string;
+  sourcePlatform?: string;
+  aggregatorInfo?: { id: string; name: string; type: string };
+  // Location and category fields
+  location?: string;
+  category?: string;
+  description?: string;
+  salary_min?: number;
+  salary_max?: number;
+  currency?: string;
+  applications_count?: number;
+  views_count?: number;
+  posted_date?: string;
+  // Additional fields that might contain location
+  jobLocation?: { city?: string; country?: string; state?: string };
+  job_location?: { city?: string; country?: string; state?: string };
+  work_location?: string;
+  workLocation?: string;
+  workplace_location?: string;
+  city?: string;
+  country?: string;
+  state?: string;
+  region?: string;
+  // Company location
+  company_location?: string;
+  companyLocation?: string;
+  posted_by_location?: string;
+  // Category as object
+  job_category?: string | { name?: string; title?: string };
+  jobCategory?: string | { name?: string; title?: string };
+  category_name?: string;
 }
 
 interface JobStats {
@@ -732,8 +850,22 @@ interface JobStats {
   avg_applications_per_job: number;
 }
 
+interface AppBreakdown {
+  applied: number;
+  matched: number;
+  interviewed: number;
+  shortlisted: number;
+  hired: number;
+  rejected: number;
+}
+
+interface ApplicationStats {
+  total: number;
+  breakdown: AppBreakdown;
+  lastUpdated: string;
+}
+
 const JobMonitoring: React.FC = () => {
-  useJobServiceAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<JobStats>({
     total: 0,
@@ -751,6 +883,12 @@ const JobMonitoring: React.FC = () => {
   const [jobToDelete, setJobToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Application stats for Hiring Pipeline
+  const [appStats, setAppStats] = useState<ApplicationStats | null>(null);
+  // Category lookup map: _id → categoryName
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -759,82 +897,232 @@ const JobMonitoring: React.FC = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(20);
 
   useEffect(() => {
+    loadCategories();
     loadJobs();
+    loadApplicationStats();
+  }, []);
+
+  // Load stats whenever jobs change
+  useEffect(() => {
     loadStats();
-  }, [currentPage, statusFilter, categoryFilter, locationFilter, searchQuery]);
+  }, [jobs]);
+
+  // Apply filters and pagination
+  const filteredJobs = jobs.filter(job => {
+    // Search filter
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = !searchQuery || 
+      job.title.toLowerCase().includes(searchLower) ||
+      job.posted_by_name.toLowerCase().includes(searchLower) ||
+      (job.location && job.location.toLowerCase().includes(searchLower));
+
+    const matchesStatus = statusFilter === 'all' ||
+      job.status === statusFilter;
+
+    // Category filter
+    const matchesCategory = categoryFilter === 'all' || 
+      (job.category && job.category.toLowerCase() === categoryFilter.toLowerCase());
+
+    // Location filter
+    const matchesLocation = locationFilter === 'all' || 
+      (job.location && job.location.toLowerCase() === locationFilter.toLowerCase());
+
+    return matchesSearch && matchesStatus && matchesCategory && matchesLocation;
+  });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage);
+  const paginatedJobs = filteredJobs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const loadCategories = async () => {
+    try {
+      const res = await jobApi.get('/job-category');
+      const cats: { _id: string; categoryName: string; lang_opt?: string }[] = Array.isArray(res.data) ? res.data : [];
+      // Build lookup map _id -> categoryName (English only preferred)
+      const map: Record<string, string> = {};
+      cats.forEach(c => { if (c._id && c.categoryName) map[c._id] = c.categoryName; });
+      setCategoryMap(map);
+      // Unique English category names for filter dropdown
+      const englishNames = [...new Set(
+        cats.filter(c => c.lang_opt === 'English' || !c.lang_opt).map(c => c.categoryName).filter(Boolean)
+      )].sort();
+      setCategoryOptions(englishNames);
+    } catch {
+      // silent — categories are optional enrichment
+    }
+  };
 
   const loadJobs = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await jobApi.get('/posts');
-      console.log('[JobMonitoring] API Response:', response.data);
+      // Use /vacancies/public/posts which returns richer data including location & category
+      const [postedRes, expiredRes, closedRes] = await Promise.allSettled([
+        jobApi.get('/vacancies/public/posts'),
+        jobApi.get('/vacancies/public/posts', { params: { status: 'expired' } }),
+        jobApi.get('/vacancies/public/posts', { params: { status: 'closed' } }),
+      ]);
 
-      // Map API response to Job interface
-      let jobsData: Job[] = [];
-      
-      if (response.data?.items && Array.isArray(response.data.items)) {
-        jobsData = response.data.items;
-      } else if (Array.isArray(response.data)) {
-        jobsData = response.data;
+      const extract = (res: PromiseSettledResult<any>): Job[] => {
+        if (res.status !== 'fulfilled') return [];
+        const d = res.value.data;
+        if (Array.isArray(d)) return d;
+        if (Array.isArray(d?.items)) return d.items;
+        if (Array.isArray(d?.data)) return d.data;
+        if (Array.isArray(d?.vacancies)) return d.vacancies;
+        return [];
+      };
+
+      // Merge and deduplicate by vacancy_id
+      const merged = [...extract(postedRes), ...extract(expiredRes), ...extract(closedRes)];
+      const seen = new Set<string>();
+      const jobsData: Job[] = merged.filter((j: any) => {
+        const id = j.vacancy_id || j._id;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+
+      if (jobsData.length > 0) {
+        console.log('[JobMonitoring] ALL FIELDS on first job:', JSON.stringify(jobsData[0], null, 2));
       }
 
-      setJobs(jobsData);
-      setTotalPages(Math.ceil((response.data?.total || jobsData.length) / itemsPerPage));
+      const enriched = jobsData.map((job: any) => {
+        // company name
+        const posted_by_name = job.company?.name || job.posted_by_name || 'Unknown';
+        // location: API returns { city, country } object
+        const loc = job.location;
+        const location = typeof loc === 'string' ? loc
+          : (loc?.city && loc?.country) ? `${loc.city}, ${loc.country}`
+          : loc?.city || loc?.country || job.workingLocation || 'Not specified';
+        // category: already a string from API
+        const category = typeof job.category === 'string' ? job.category
+          : job.category?.name || '';
+        // status: normalize — API has no status field, derive from deadline
+        const now = new Date();
+        const deadline = job.deadline ? new Date(job.deadline) : null;
+        const rawStatus = job.status || '';
+        const status = rawStatus === 'posted' ? 'active'
+          : rawStatus ? rawStatus
+          : (deadline && deadline < now ? 'expired' : 'active');
+        // salary
+        const salary_min = job.salary?.min;
+        const salary_max = job.salary?.max;
+        const currency = job.salary?.currency;
+        // logo
+        const logo = job.company?.logo;
+        return {
+          ...job,
+          posted_by_name,
+          location,
+          category,
+          status,
+          salary_min,
+          salary_max,
+          currency,
+          logo,
+          posted_date: job.postedDate || job.posted_date,
+          verified: job.verified ?? true,
+          filled: job.filled ?? false,
+          applications_count: 0, // will be enriched below
+        };
+      });
+
+      // Fetch application counts per vacancy in parallel (batched to avoid rate limits)
+      const enrichedWithCounts = await Promise.all(
+        enriched.map(async (job: any) => {
+          try {
+            const res = await jobApi.get(`/applied-jobs/job-applicants/${job.vacancy_id}`);
+            const data = res.data;
+            const count = Array.isArray(data) ? data.length
+              : data?.total ?? data?.count ?? data?.length ?? 0;
+            return { ...job, applications_count: count };
+          } catch {
+            return job;
+          }
+        })
+      );
+
+      setJobs(enrichedWithCounts);
+      setCurrentPage(1);
     } catch (err: any) {
       console.error('Error loading jobs:', err);
-      
-      // Handle 403 Forbidden with detailed error message
       if (err.response?.status === 403) {
-        const details = err.response?.data?.details;
-        const message = details?.message || 'Access Denied';
-        setError(message);
+        setError(err.response?.data?.details?.message || 'Access Denied');
       } else {
         setError(handleApiError(err));
       }
-      
       setJobs([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStats = async () => {
+  const loadStats = () => {
+    const active  = jobs.filter(j => j.status === 'active').length;
+    const closed  = jobs.filter(j => j.status === 'closed').length;
+    const expired = jobs.filter(j => j.status === 'expired').length;
+    setStats({
+      total: jobs.length,
+      active,
+      closed,
+      expired,
+      total_applications: jobs.reduce((s, j) => s + (j.applications_count || 0), 0),
+      avg_applications_per_job: jobs.length > 0
+        ? Math.round(jobs.reduce((s, j) => s + (j.applications_count || 0), 0) / jobs.length)
+        : 0,
+    });
+  };
+
+  const loadApplicationStats = async () => {
     try {
-      const statsData = await monitoringApi.job.getJobStats();
-      setStats({
-        total: statsData.total || 0,
-        active: statsData.active || 0,
-        closed: statsData.closed || 0,
-        expired: statsData.expired || 0,
-        total_applications: statsData.total_applications || 0,
-        avg_applications_per_job: statsData.avg_applications_per_job || 0,
+      const data = await jobMonitoringApi.getApplicationStats();
+      setAppStats({
+        total: data.total || 0,
+        breakdown: {
+          applied: data.breakdown?.applied || 0,
+          matched: data.breakdown?.matched || 0,
+          interviewed: data.breakdown?.interviewed || 0,
+          shortlisted: data.breakdown?.shortlisted || 0,
+          hired: data.breakdown?.hired || 0,
+          rejected: data.breakdown?.rejected || 0,
+        },
+        lastUpdated: data.lastUpdated || new Date().toISOString(),
       });
-    } catch (err) {
-      console.error('Failed to load stats from API:', err);
-      // Fallback: Calculate stats from loaded jobs if API fails
-      if (Array.isArray(jobs) && jobs.length > 0) {
-        try {
-          const calculatedStats = {
-            total: jobs.length,
-            active: jobs.filter(j => j?.post_status === 'active').length,
-            closed: jobs.filter(j => j?.post_status === 'closed').length,
-            expired: jobs.filter(j => j?.post_status === 'expired').length,
-            total_applications: 0,
-            avg_applications_per_job: 0,
-          };
-          setStats(calculatedStats);
-          console.log('Calculated stats from jobs:', calculatedStats);
-        } catch (calcErr) {
-          console.error('Error calculating stats:', calcErr);
-        }
-      }
+    } catch {
+      setAppStats({
+        total: 0,
+        breakdown: { applied: 0, matched: 0, interviewed: 0, shortlisted: 0, hired: 0, rejected: 0 },
+        lastUpdated: new Date().toISOString(),
+      });
     }
+  };
+
+  const getJobLocation = (job: Job): string => {
+    if (job.location && typeof job.location === 'string' && job.location !== 'Not specified') return job.location;
+    const j = job as any;
+    const loc = j.location;
+    if (loc && typeof loc === 'object') {
+      if (loc.city && loc.country) return `${loc.city}, ${loc.country}`;
+      if (loc.city) return loc.city;
+      if (loc.country) return loc.country;
+    }
+    return j.workingLocation || 'Not specified';
+  };
+
+  const getJobCategory = (job: Job): string => {
+    if (job.category && typeof job.category === 'string') return job.category;
+    const j = job as any;
+    const catId = j.job_category_id || j.category_id || j.jobCategoryId;
+    if (catId && categoryMap[catId]) return categoryMap[catId];
+    return 'General';
   };
 
   const handleViewJob = (job: Job) => {
@@ -842,8 +1130,8 @@ const JobMonitoring: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleDeleteClick = (postId: string) => {
-    setJobToDelete(postId);
+  const handleDeleteClick = (vacancyId: string) => {
+    setJobToDelete(vacancyId);
     setDeleteConfirmOpen(true);
   };
 
@@ -852,7 +1140,7 @@ const JobMonitoring: React.FC = () => {
     
     try {
       setDeleting(true);
-      await jobApi.delete(`/posts/${jobToDelete}`);
+      await jobApi.delete(`/vacancies/${jobToDelete}`);
       setDeleteConfirmOpen(false);
       setJobToDelete(null);
       loadJobs();
@@ -866,18 +1154,14 @@ const JobMonitoring: React.FC = () => {
 
   const handleExport = () => {
     const csv = [
-      ['Title', 'Company', 'Location', 'Category', 'Status', 'Posted'],
-      ...jobs.map(j => {
-        const v = j.vacancies_topost?.[0];
-        return [
-          v?.jobData?.jobTitle || '',
-          v?.companyData?.companyName || v?.employer || '',
-          `${v?.jobData?.jobLocation?.city || ''} ${v?.jobData?.jobLocation?.country || ''}`.trim(),
-          v?.category?.name || '',
-          j.post_status,
-          new Date(j.posted_date).toLocaleDateString()
-        ];
-      })
+      ['Title', 'Posted By', 'Status', 'Verified', 'Deadline'],
+      ...jobs.map(j => [
+        j.title,
+        j.posted_by_name,
+        j.status,
+        j.verified ? 'Yes' : 'No',
+        new Date(j.deadline).toLocaleDateString()
+      ])
     ].map(row => row.join(',')).join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -925,11 +1209,6 @@ const JobMonitoring: React.FC = () => {
         </ErrorAlert>
       )}
 
-      {/* ── Job Market Overview (Global + Agency Stats) ── */}
-      <OverviewSection>
-        <JobMarketOverview />
-      </OverviewSection>
-
       <StatsBar>
         <StatCard $gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
           <StatValue>{stats.total.toLocaleString()}</StatValue>
@@ -946,17 +1225,10 @@ const JobMonitoring: React.FC = () => {
           </StatLabel>
         </StatCard>
         <StatCard $gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
-          <StatValue>{stats.total_applications.toLocaleString()}</StatValue>
+          <StatValue>{stats.expired.toLocaleString()}</StatValue>
           <StatLabel>
-            <FiUsers />
-            Total Applications
-          </StatLabel>
-        </StatCard>
-        <StatCard $gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
-          <StatValue>{stats.avg_applications_per_job.toFixed(1)}</StatValue>
-          <StatLabel>
-            <FiTrendingUp />
-            Avg Applications/Job
+            <FiClock />
+            Expired Posts
           </StatLabel>
         </StatCard>
       </StatsBar>
@@ -1005,11 +1277,9 @@ const JobMonitoring: React.FC = () => {
             <FilterLabel>Category</FilterLabel>
             <FilterSelect value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">All Categories</option>
-              <option value="technology">Technology</option>
-              <option value="finance">Finance</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="education">Education</option>
-              <option value="marketing">Marketing</option>
+              {categoryOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </FilterSelect>
           </FilterGroup>
 
@@ -1034,9 +1304,16 @@ const JobMonitoring: React.FC = () => {
               <FiBriefcase size={48} />
             </EmptyStateIcon>
             <EmptyStateText>
-              {searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all'
-                ? 'No jobs found. Try adjusting your filters.'
-                : 'No jobs available yet. Jobs will appear here once they are posted.'}
+              No jobs available yet. Jobs will appear here once they are posted.
+            </EmptyStateText>
+          </EmptyState>
+        ) : filteredJobs.length === 0 && !loading ? (
+          <EmptyState>
+            <EmptyStateIcon>
+              <FiBriefcase size={48} />
+            </EmptyStateIcon>
+            <EmptyStateText>
+              No jobs found. Try adjusting your filters or search query.
             </EmptyStateText>
           </EmptyState>
         ) : (
@@ -1051,69 +1328,56 @@ const JobMonitoring: React.FC = () => {
                     <Th>Category</Th>
                     <Th>Status</Th>
                     <Th>Applications</Th>
-                    <Th>Views</Th>
-                    <Th>Posted</Th>
+                    <Th>Type</Th>
+                    <Th>Deadline</Th>
                     <Th>Actions</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {jobs.map((job) => {
-                    const vacancy = job.vacancies_topost?.[0];
-                    if (!vacancy) return null;
-                    
-                    const jobData = vacancy.jobData;
-                    const salary = vacancy.salary;
-                    const location = jobData.jobLocation;
+                  {paginatedJobs.map((job) => {
+                    const isExpired = job.status === 'expired';
                     
                     return (
-                      <Tr key={job._id}>
+                      <Tr key={job.vacancy_id} style={{ opacity: isExpired ? 0.7 : 1, backgroundColor: isExpired ? '#fef5f5' : 'transparent' }}>
                         <Td>
-                          <JobTitle>{jobData.jobTitle}</JobTitle>
-                          <JobMeta>
-                            {salary?.minAmount && salary?.maxAmount && (
-                              <>
-                                <FiDollarSign size={12} />
-                                {salary.currency} {salary.minAmount.toLocaleString()} - {salary.maxAmount.toLocaleString()}
-                              </>
-                            )}
-                          </JobMeta>
+                          <JobTitle style={{ color: isExpired ? '#a0a0a0' : '#1a202c' }}>
+                            {job.title}
+                            {isExpired && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#e74c3c', fontWeight: 600 }}>EXPIRED</span>}
+                          </JobTitle>
                         </Td>
-                        <Td>{vacancy.companyData?.companyName || vacancy.employer}</Td>
+                        <Td>{job.posted_by_name}</Td>
                         <Td>
                           <JobMeta>
                             <FiMapPin size={12} />
-                            {location?.city}, {location?.country}
+                            {getJobLocation(job)}
                           </JobMeta>
                         </Td>
-                        <Td>{vacancy.category?.name}</Td>
+                        <Td>{getJobCategory(job)}</Td>
                         <Td>
-                          <StatusBadge status={job.post_status}>
-                            {job.post_status === 'active' && <FiCheckCircle size={12} />}
-                            {job.post_status === 'closed' && <FiXCircle size={12} />}
-                            {job.post_status === 'expired' && <FiClock size={12} />}
-                            {job.post_status}
+                          <StatusBadge status={job.status}>
+                            {job.status === 'active' && <FiCheckCircle size={12} />}
+                            {job.status === 'closed' && <FiXCircle size={12} />}
+                            {job.status === 'expired' && <FiClock size={12} />}
+                            {job.status === 'active' ? 'Active' : job.status}
                           </StatusBadge>
                         </Td>
                         <Td>
                           <MetricBadge>
                             <FiUsers size={12} style={{ marginRight: '4px' }} />
-                            0
+                            {job.applications_count ?? 0}
                           </MetricBadge>
                         </Td>
-                        <Td>
-                          <MetricBadge>
-                            <FiEye size={12} style={{ marginRight: '4px' }} />
-                            0
-                          </MetricBadge>
+                        <Td style={{ fontSize: '12px', color: '#7f8c8d' }}>
+                          {(job as any).employmentType || '—'}
                         </Td>
-                        <Td>{new Date(job.posted_date).toLocaleDateString()}</Td>
+                        <Td>{new Date(job.deadline).toLocaleDateString()}</Td>
                         <Td>
                           <ActionButtons>
                             <IconButton onClick={() => handleViewJob(job)} title="View Details">
                               <FiEye size={16} />
                             </IconButton>
                             <IconButton 
-                              onClick={() => handleDeleteClick(job.post_id)} 
+                              onClick={() => handleDeleteClick(job.vacancy_id)} 
                               title="Delete Job"
                               style={{ color: '#e74c3c' }}
                             >
@@ -1130,7 +1394,7 @@ const JobMonitoring: React.FC = () => {
 
             <Pagination>
               <PageInfo>
-                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, stats.total)} of {stats.total} jobs
+                Showing {filteredJobs.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredJobs.length)} of {filteredJobs.length} jobs
               </PageInfo>
               <PageButtons>
                 <PageButton
@@ -1144,7 +1408,7 @@ const JobMonitoring: React.FC = () => {
                   return (
                     <PageButton
                       key={page}
-                      active={currentPage === page}
+                      $active={currentPage === page}
                       onClick={() => setCurrentPage(page)}
                     >
                       {page}
@@ -1163,147 +1427,274 @@ const JobMonitoring: React.FC = () => {
         )}
       </TableCard>
 
+      {/* Hiring Pipeline Section */}
+      {appStats && (
+        <PipelineWrap>
+          <PipelineTitle>
+            <FiUsers size={16} color="#3b82f6" />
+            Hiring Pipeline — {appStats.total.toLocaleString()} total applications
+          </PipelineTitle>
+
+          <FunnelList>
+            {[
+              { key: 'applied', label: 'Applied', color: '#3b82f6' },
+              { key: 'matched', label: 'Matched', color: '#8b5cf6' },
+              { key: 'interviewed', label: 'Interviewed', color: '#f59e0b' },
+              { key: 'shortlisted', label: 'Shortlisted', color: '#f97316' },
+              { key: 'hired', label: 'Hired', color: '#10b981' },
+              { key: 'rejected', label: 'Rejected', color: '#ef4444' },
+            ].map(stage => {
+              const val = appStats.breakdown[stage.key as keyof AppBreakdown];
+              const pct = appStats.total > 0 ? (val / appStats.total) * 100 : 0;
+              const maxVal = Math.max(...Object.values(appStats.breakdown), 1);
+              const barPct = (val / maxVal) * 100;
+              
+              return (
+                <FunnelRow key={stage.key}>
+                  <FunnelMeta>
+                    <FunnelLabel $color={stage.color}>
+                      {stage.key === 'hired' && <FiCheckCircle size={13} />}
+                      {stage.key === 'rejected' && <FiXCircle size={13} />}
+                      {stage.label}
+                    </FunnelLabel>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <FunnelCount>{val.toLocaleString()}</FunnelCount>
+                      <FunnelPct>{pct.toFixed(1)}%</FunnelPct>
+                    </div>
+                  </FunnelMeta>
+                  <BarTrack>
+                    <BarFill $pct={barPct} $color={stage.color} />
+                  </BarTrack>
+                </FunnelRow>
+              );
+            })}
+          </FunnelList>
+
+          {/* Summary chips */}
+          <SummaryRow>
+            <SummaryChip $bg="#ecfdf5" $color="#065f46">
+              <ChipVal>{appStats.breakdown.hired.toLocaleString()}</ChipVal>
+              <ChipLabel>✓ Hired ({appStats.total > 0 ? ((appStats.breakdown.hired / appStats.total) * 100).toFixed(1) : 0}%)</ChipLabel>
+            </SummaryChip>
+            <SummaryChip $bg="#fef2f2" $color="#991b1b">
+              <ChipVal>{appStats.breakdown.rejected.toLocaleString()}</ChipVal>
+              <ChipLabel>✗ Rejected ({appStats.total > 0 ? ((appStats.breakdown.rejected / appStats.total) * 100).toFixed(1) : 0}%)</ChipLabel>
+            </SummaryChip>
+            <SummaryChip $bg="#fffbeb" $color="#92400e">
+              <ChipVal>
+                {(appStats.breakdown.interviewed + appStats.breakdown.shortlisted).toLocaleString()}
+              </ChipVal>
+              <ChipLabel>⏳ In Progress</ChipLabel>
+            </SummaryChip>
+            <SummaryChip $bg="#eff6ff" $color="#1e40af">
+              <ChipVal>{appStats.total.toLocaleString()}</ChipVal>
+              <ChipLabel>Total Applications</ChipLabel>
+            </SummaryChip>
+          </SummaryRow>
+        </PipelineWrap>
+      )}
+
       <Modal $isOpen={modalOpen}>
         <ModalContent>
           <ModalHeader>
             <ModalTitle>
               <FiBriefcase style={{ marginRight: '12px' }} />
-              Job Details
+              {selectedJob?.title}
             </ModalTitle>
             <CloseButton onClick={() => setModalOpen(false)}>
               <FiX size={24} />
             </CloseButton>
           </ModalHeader>
-          {selectedJob && selectedJob.vacancies_topost?.[0] && (
+          
+          {selectedJob && (
             <>
-              {(() => {
-                const vacancy = selectedJob.vacancies_topost[0];
-                const jobData = vacancy.jobData;
-                const salary = vacancy.salary;
-                
-                return (
-                  <>
-                    <ModalSection>
-                      <ModalSectionTitle>
-                        <FiBriefcase size={16} />
-                        Basic Information
-                      </ModalSectionTitle>
-                      <ModalGrid>
-                        <ModalField>
-                          <ModalFieldLabel>Job Title</ModalFieldLabel>
-                          <ModalFieldValue>{jobData.jobTitle}</ModalFieldValue>
-                        </ModalField>
-                        <ModalField>
-                          <ModalFieldLabel>Company</ModalFieldLabel>
-                          <ModalFieldValue>{vacancy.companyData?.companyName || vacancy.employer}</ModalFieldValue>
-                        </ModalField>
-                        <ModalField>
-                          <ModalFieldLabel>Location</ModalFieldLabel>
-                          <ModalFieldValue>{jobData.jobLocation?.city}, {jobData.jobLocation?.country}</ModalFieldValue>
-                        </ModalField>
-                        <ModalField>
-                          <ModalFieldLabel>Category</ModalFieldLabel>
-                          <ModalFieldValue>{vacancy.category?.name}</ModalFieldValue>
-                        </ModalField>
-                        <ModalField>
-                          <ModalFieldLabel>Status</ModalFieldLabel>
-                          <ModalFieldValue>
-                            <StatusBadge status={selectedJob.post_status}>
-                              {selectedJob.post_status}
-                            </StatusBadge>
-                          </ModalFieldValue>
-                        </ModalField>
-                      </ModalGrid>
-                    </ModalSection>
+              {/* Status Banner */}
+              <div style={{
+                background: selectedJob.status === 'expired' ? '#fef5f5' : selectedJob.status === 'active' ? '#f0f9ff' : '#f5f5f5',
+                border: `2px solid ${selectedJob.status === 'expired' ? '#fecaca' : selectedJob.status === 'active' ? '#bfdbfe' : '#e5e7eb'}`,
+                borderRadius: '12px', padding: '16px', marginBottom: '24px',
+                display: 'flex', alignItems: 'center', gap: '12px'
+              }}>
+                <div style={{ fontSize: '24px', display: 'flex', alignItems: 'center' }}>
+                  {selectedJob.status === 'expired' ? '⏰' : selectedJob.status === 'active' ? '✓' : '○'}
+                </div>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 700,
+                    color: selectedJob.status === 'expired' ? '#dc2626' : selectedJob.status === 'active' ? '#0369a1' : '#6b7280' }}>
+                    {selectedJob.status === 'active' ? 'Active Job' : selectedJob.status === 'expired' ? 'Expired Job' : 'Closed Job'}
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '2px',
+                    color: selectedJob.status === 'expired' ? '#991b1b' : selectedJob.status === 'active' ? '#164e63' : '#4b5563' }}>
+                    {selectedJob.status === 'expired'
+                      ? `Expired on ${new Date(selectedJob.deadline).toLocaleDateString()}`
+                      : selectedJob.status === 'active'
+                      ? `Deadline: ${new Date(selectedJob.deadline).toLocaleDateString()}`
+                      : 'This job posting is no longer accepting applications'}
+                  </div>
+                </div>
+              </div>
 
-                    <ModalSection>
-                      <ModalSectionTitle>
-                        <FiDollarSign size={16} />
-                        Salary & Compensation
-                      </ModalSectionTitle>
-                      <ModalGrid>
-                        <ModalField>
-                          <ModalFieldLabel>Salary Range</ModalFieldLabel>
-                          <ModalFieldValue>
-                            {salary?.minAmount && salary?.maxAmount
-                              ? `${salary.currency} ${salary.minAmount.toLocaleString()} - ${salary.maxAmount.toLocaleString()}`
-                              : 'Not specified'}
-                          </ModalFieldValue>
-                        </ModalField>
-                      </ModalGrid>
-                    </ModalSection>
+              {/* Basic Information */}
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiBriefcase size={16} />
+                  Basic Information
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Job Title</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.title}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Company</ModalFieldLabel>
+                    <ModalFieldValue>{selectedJob.posted_by_name}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Location</ModalFieldLabel>
+                    <ModalFieldValue style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FiMapPin size={14} />
+                      {getJobLocation(selectedJob)}
+                    </ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Category</ModalFieldLabel>
+                    <ModalFieldValue>{getJobCategory(selectedJob)}</ModalFieldValue>
+                  </ModalField>
+                </ModalGrid>
+              </ModalSection>
 
-                    <ModalSection>
-                      <ModalSectionTitle>
-                        <FiBarChart2 size={16} />
-                        Job Description
-                      </ModalSectionTitle>
-                      <ModalFieldValue style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                        {jobData.jobDescription}
+              {/* Verification & Status */}
+              <ModalSection>
+                <ModalSectionTitle>
+                  <FiCheckCircle size={16} />
+                  Verification & Status
+                </ModalSectionTitle>
+                <ModalGrid>
+                  <ModalField>
+                    <ModalFieldLabel>Verification Status</ModalFieldLabel>
+                    <ModalFieldValue style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: selectedJob.verified ? '#ecfdf5' : '#fef3c7',
+                      color: selectedJob.verified ? '#065f46' : '#92400e',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      width: 'fit-content'
+                    }}>
+                      {selectedJob.verified ? '✓ Verified' : '⏳ Pending'}
+                    </ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Job Status</ModalFieldLabel>
+                    <ModalFieldValue>
+                      <StatusBadge status={selectedJob.status}>
+                        {selectedJob.status === 'active' ? 'Active' : selectedJob.status}
+                      </StatusBadge>
+                    </ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Posted Date</ModalFieldLabel>
+                    <ModalFieldValue>{new Date((selectedJob as any).posted_date || selectedJob.deadline).toLocaleString()}</ModalFieldValue>
+                  </ModalField>
+                  <ModalField>
+                    <ModalFieldLabel>Deadline</ModalFieldLabel>
+                    <ModalFieldValue>{new Date(selectedJob.deadline).toLocaleString()}</ModalFieldValue>
+                  </ModalField>
+                </ModalGrid>
+              </ModalSection>
+
+              {/* Engagement Metrics */}
+              <ModalSection>
+                <ModalSectionTitle><FiBarChart2 size={16} />Engagement Metrics</ModalSectionTitle>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
+                  <div style={{ background: '#f0f9ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '28px', fontWeight: 800, color: '#0369a1' }}>{selectedJob.applications_count ?? 0}</div>
+                    <div style={{ fontSize: '12px', color: '#0c4a6e', fontWeight: 600, marginTop: '4px' }}>Applications</div>
+                  </div>
+                  <div style={{ background: '#f0fff4', border: '1px solid #9ae6b4', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#276749' }}>{(selectedJob as any).employmentType || '—'}</div>
+                    <div style={{ fontSize: '12px', color: '#276749', fontWeight: 600, marginTop: '4px' }}>Employment Type</div>
+                  </div>
+                  <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '10px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#d97706' }}>{(selectedJob as any).workingLocation || '—'}</div>
+                    <div style={{ fontSize: '12px', color: '#92400e', fontWeight: 600, marginTop: '4px' }}>Work Location</div>
+                  </div>
+                </div>
+              </ModalSection>
+
+              {/* Salary Information */}
+              {(selectedJob.salary_min || selectedJob.salary_max) && (
+                <ModalSection>
+                  <ModalSectionTitle>
+                    <FiDollarSign size={16} />
+                    Salary & Compensation
+                  </ModalSectionTitle>
+                  <ModalGrid>
+                    <ModalField>
+                      <ModalFieldLabel>Salary Range</ModalFieldLabel>
+                      <ModalFieldValue style={{
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        color: '#059669'
+                      }}>
+                        {selectedJob.currency || 'USD'} {selectedJob.salary_min?.toLocaleString() || '—'} - {selectedJob.salary_max?.toLocaleString() || '—'}
                       </ModalFieldValue>
-                    </ModalSection>
+                    </ModalField>
+                  </ModalGrid>
+                </ModalSection>
+              )}
 
-                    {jobData.jobResponsibility && jobData.jobResponsibility.length > 0 && (
-                      <ModalSection>
-                        <ModalSectionTitle>
-                          <FiCheckCircle size={16} />
-                          Responsibilities
-                        </ModalSectionTitle>
-                        <ul style={{ margin: '0', paddingLeft: '20px', color: '#2c3e50' }}>
-                          {jobData.jobResponsibility.map((resp, idx) => (
-                            <li key={idx} style={{ marginBottom: '8px', fontSize: '14px' }}>
-                              {resp}
-                            </li>
-                          ))}
-                        </ul>
-                      </ModalSection>
-                    )}
+              {/* Description */}
+              {selectedJob.description && (
+                <ModalSection>
+                  <ModalSectionTitle>
+                    <FiBarChart2 size={16} />
+                    Job Description
+                  </ModalSectionTitle>
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#2c3e50',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {selectedJob.description}
+                  </div>
+                </ModalSection>
+              )}
 
-                    {vacancy.skills && vacancy.skills.length > 0 && (
-                      <ModalSection>
-                        <ModalSectionTitle>
-                          <FiUsers size={16} />
-                          Required Skills
-                        </ModalSectionTitle>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                          {vacancy.skills.map((skill, idx) => (
-                            <span
-                              key={idx}
-                              style={{
-                                background: '#e8f4f8',
-                                color: '#0c5460',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: '600'
-                              }}
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                        </div>
-                      </ModalSection>
-                    )}
-
-                    <ModalSection>
-                      <ModalSectionTitle>
-                        <FiClock size={16} />
-                        Timeline
-                      </ModalSectionTitle>
-                      <ModalGrid>
-                        <ModalField>
-                          <ModalFieldLabel>Posted</ModalFieldLabel>
-                          <ModalFieldValue>{new Date(selectedJob.posted_date).toLocaleString()}</ModalFieldValue>
-                        </ModalField>
-                        <ModalField>
-                          <ModalFieldLabel>Deadline</ModalFieldLabel>
-                          <ModalFieldValue>{new Date(vacancy.deadline).toLocaleString()}</ModalFieldValue>
-                        </ModalField>
-                      </ModalGrid>
-                    </ModalSection>
-                  </>
-                );
-              })()}
+              {/* Action Buttons */}
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                marginTop: '28px',
+                paddingTop: '20px',
+                borderTop: '1px solid #ecf0f1'
+              }}>
+                <Button 
+                  onClick={() => setModalOpen(false)}
+                  style={{ flex: 1 }}
+                >
+                  Close
+                </Button>
+                <Button 
+                  variant="danger"
+                  onClick={() => {
+                    setModalOpen(false);
+                    handleDeleteClick(selectedJob.vacancy_id);
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Delete Job
+                </Button>
+              </div>
             </>
           )}
         </ModalContent>

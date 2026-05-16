@@ -51,7 +51,7 @@ const Title = styled.h1`
   margin: 0;
 `;
 
-const Button = styled.button<{ variant?: 'primary' | 'success' | 'danger' | 'secondary' }>`
+const Button = styled.button<{ $variant?: 'primary' | 'success' | 'danger' | 'secondary' }>`
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
@@ -61,7 +61,7 @@ const Button = styled.button<{ variant?: 'primary' | 'success' | 'danger' | 'sec
   transition: all 0.2s;
   
   background: ${props => {
-    switch(props.variant) {
+    switch(props.$variant) {
       case 'success': return '#10b981';
       case 'danger': return '#ef4444';
       case 'secondary': return '#6b7280';
@@ -73,17 +73,22 @@ const Button = styled.button<{ variant?: 'primary' | 'success' | 'danger' | 'sec
   &:hover {
     opacity: 0.9;
   }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 
-const Alert = styled.div<{ type: 'error' | 'success' }>`
+const Alert = styled.div<{ $type: 'error' | 'success' }>`
   padding: 12px 16px;
   border-radius: 4px;
   margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: ${props => props.type === 'error' ? '#fee2e2' : '#dcfce7'};
-  color: ${props => props.type === 'error' ? '#991b1b' : '#166534'};
+  background: ${props => props.$type === 'error' ? '#fee2e2' : '#dcfce7'};
+  color: ${props => props.$type === 'error' ? '#991b1b' : '#166534'};
 `;
 
 const Table = styled.table`
@@ -107,10 +112,11 @@ const Td = styled.td`
   font-size: 14px;
 `;
 
-const Tr = styled.tr`
+const Tr = styled.tr<{ $isChild?: boolean }>`
   &:hover {
     background: #f9fafb;
   }
+  background: ${props => props.$isChild ? '#fafbfc' : 'white'};
 `;
 
 const LoadingText = styled.div`
@@ -138,25 +144,196 @@ const CheckboxGroup = styled.div`
   gap: 4px;
 `;
 
+const Toggle = styled.input`
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  background: #ccc;
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.3s;
+  
+  &:checked {
+    background: #10b981;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const MenuLabel = styled.span<{ $level?: number }>`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: ${props => (props.$level || 0) * 24}px;
+  
+  &::before {
+    content: ${props => props.$level && props.$level > 0 ? '"└─"' : '""'};
+    color: #9ca3af;
+  }
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const Modal = styled.div`
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+`;
+
+const ModalHeader = styled.h2`
+  font-size: 20px;
+  font-weight: bold;
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+`;
+
+const FormGroup = styled.div`
+  margin-bottom: 16px;
+`;
+
+const Label = styled.label`
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+  font-size: 14px;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+`;
+
 export const MenuManagement: React.FC = () => {
   const dispatch = useDispatch();
   const { items, loading, error, success } = useSelector((state: RootState) => state.menuConfig);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState<any>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAllMenuConfigs() as any);
   }, [dispatch]);
 
+  // Build a map of menu items by ID for parent-child relationships
+  const menuMap = new Map(items.map(item => [item.menuId, item]));
+
+  // Get the hierarchy level of a menu item
+  const getMenuLevel = (menuId: string, visited = new Set<string>()): number => {
+    if (visited.has(menuId)) return 0; // Prevent infinite loops
+    visited.add(menuId);
+    
+    const item = menuMap.get(menuId);
+    if (!item?.parentMenuId) return 0;
+    
+    return 1 + getMenuLevel(item.parentMenuId, visited);
+  };
+
+  // Sort items to show parents before children
+  const sortedItems = [...items].sort((a, b) => {
+    const levelA = getMenuLevel(a.menuId);
+    const levelB = getMenuLevel(b.menuId);
+    if (levelA !== levelB) return levelA - levelB;
+    return (a.order || 0) - (b.order || 0);
+  });
+
   const handleEdit = (item: any) => {
-    setEditingId(item.menuId);
+    setShowModal(true);
     setEditData({ ...item });
   };
 
-  const handleSave = async () => {
-    if (editingId) {
-      dispatch(updateMenuConfig({ menuId: editingId, data: editData }) as any);
-      setEditingId(null);
+  const handleSave = () => {
+    if (editData) {
+      setIsSaving(true);
+      try {
+        // Send only the fields that the PUT endpoint accepts (NOT menuId)
+        const updateData = {
+          label: editData.label,
+          path: editData.path,
+          icon: editData.icon,
+          description: editData.description,
+          badge: editData.badge,
+          isActive: editData.isActive,
+          minTrustScore: editData.minTrustScore || 0,
+          allowedUserTypes: editData.allowedUserTypes || [],
+          allowedWorkerTypes: editData.allowedWorkerTypes || [],
+          allowedSubscriptionTiers: editData.allowedSubscriptionTiers || [],
+          order: editData.order,
+          parentMenuId: editData.parentMenuId
+        };
+        console.log('Saving menu config:', { menuId: editData.menuId, updateData });
+        dispatch(updateMenuConfig({ menuId: editData.menuId, data: updateData }) as any);
+        setShowModal(false);
+        setEditData({});
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  const handleToggleActive = (item: any) => {
+    setIsSaving(true);
+    try {
+      // Send only the fields that the PUT endpoint accepts (NOT menuId)
+      const updateData = {
+        label: item.label,
+        path: item.path,
+        icon: item.icon,
+        description: item.description,
+        badge: item.badge,
+        isActive: !item.isActive,
+        minTrustScore: item.minTrustScore || 0,
+        allowedUserTypes: item.allowedUserTypes || [],
+        allowedWorkerTypes: item.allowedWorkerTypes || [],
+        allowedSubscriptionTiers: item.allowedSubscriptionTiers || [],
+        order: item.order,
+        parentMenuId: item.parentMenuId
+      };
+      console.log('Toggling menu active status:', { menuId: item.menuId, updateData });
+      dispatch(updateMenuConfig({ 
+        menuId: item.menuId, 
+        data: updateData
+      }) as any);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -221,143 +398,201 @@ export const MenuManagement: React.FC = () => {
     <Container>
       <Header>
         <Title>Menu Management</Title>
-        <Button onClick={handleSeedDefaults}>Seed Defaults</Button>
+        <Button onClick={handleSeedDefaults} disabled={loading}>
+          Seed Default Menus
+        </Button>
       </Header>
 
       {error && (
-        <Alert type="error">
-          <span>{error}</span>
+        <Alert $type="error">
+          <span>{typeof error === 'string' ? error : (error as any)?.message || 'An error occurred'}</span>
           <button onClick={() => dispatch(clearError())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit' }}>Dismiss</button>
         </Alert>
       )}
 
       {success && (
-        <Alert type="success">
+        <Alert $type="success">
           <span>Operation completed successfully</span>
           <button onClick={() => dispatch(clearSuccess())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit' }}>Dismiss</button>
         </Alert>
       )}
 
       {loading ? (
-        <LoadingText>Loading...</LoadingText>
+        <LoadingText>Loading menu configurations...</LoadingText>
+      ) : items.length === 0 ? (
+        <LoadingText>No menu configurations found. Click "Seed Default Menus" to get started.</LoadingText>
       ) : (
         <Table>
           <thead>
             <Tr>
-              <Th>Menu ID</Th>
-              <Th>Label</Th>
+              <Th>Menu</Th>
               <Th>Path</Th>
+              <Th>Icon</Th>
               <Th>Active</Th>
               <Th>User Types</Th>
               <Th>Worker Types</Th>
-              <Th>Subscription Tiers</Th>
               <Th>Min Trust Score</Th>
               <Th>Actions</Th>
             </Tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <Tr key={item.menuId}>
-                <Td>{item.menuId}</Td>
-                <Td>{item.label}</Td>
-                <Td>{item.path}</Td>
-                <Td>
-                  <input
-                    type="checkbox"
-                    checked={editingId === item.menuId ? editData.isActive : item.isActive}
-                    onChange={(e) => {
-                      if (editingId === item.menuId) {
-                        setEditData({ ...editData, isActive: e.target.checked });
-                      }
-                    }}
-                    disabled={editingId !== item.menuId}
-                  />
-                </Td>
-                <Td>
-                  {editingId === item.menuId ? (
-                    <CheckboxGroup>
-                      {Object.values(UserTypeCategory).map((type) => (
-                        <CheckboxLabel key={type}>
-                          <input
-                            type="checkbox"
-                            checked={(editData.allowedUserTypes || []).includes(type)}
-                            onChange={() => toggleUserType(type)}
-                          />
-                          {type}
-                        </CheckboxLabel>
-                      ))}
-                    </CheckboxGroup>
-                  ) : (
-                    <div>{(item.allowedUserTypes || []).join(', ') || 'All'}</div>
-                  )}
-                </Td>
-                <Td>
-                  {editingId === item.menuId ? (
-                    <CheckboxGroup>
-                      {Object.values(WorkerType).map((type) => (
-                        <CheckboxLabel key={type}>
-                          <input
-                            type="checkbox"
-                            checked={(editData.allowedWorkerTypes || []).includes(type)}
-                            onChange={() => toggleWorkerType(type)}
-                          />
-                          {type}
-                        </CheckboxLabel>
-                      ))}
-                    </CheckboxGroup>
-                  ) : (
-                    <div>{(item.allowedWorkerTypes || []).join(', ') || 'All'}</div>
-                  )}
-                </Td>
-                <Td>
-                  {editingId === item.menuId ? (
-                    <CheckboxGroup>
-                      {Object.values(SubscriptionTier).map((tier) => (
-                        <CheckboxLabel key={tier}>
-                          <input
-                            type="checkbox"
-                            checked={(editData.allowedSubscriptionTiers || []).includes(tier)}
-                            onChange={() => toggleSubscriptionTier(tier)}
-                          />
-                          {tier}
-                        </CheckboxLabel>
-                      ))}
-                    </CheckboxGroup>
-                  ) : (
-                    <div>{(item.allowedSubscriptionTiers || []).join(', ')}</div>
-                  )}
-                </Td>
-                <Td>
-                  {editingId === item.menuId ? (
-                    <input
-                      type="number"
-                      value={editData.minTrustScore || 0}
-                      onChange={(e) => setEditData({ ...editData, minTrustScore: parseInt(e.target.value) })}
-                      style={{ width: '64px', padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+            {sortedItems.map((item) => {
+              const level = getMenuLevel(item.menuId);
+              const isChild = level > 0;
+              
+              return (
+                <Tr key={item.menuId} $isChild={isChild}>
+                  <Td>
+                    <MenuLabel $level={level}>
+                      {item.label}
+                      {item.badge && <span style={{ fontSize: '12px', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '3px' }}>{item.badge}</span>}
+                    </MenuLabel>
+                  </Td>
+                  <Td>{item.path}</Td>
+                  <Td>{item.icon}</Td>
+                  <Td>
+                    <Toggle
+                      type="checkbox"
+                      checked={item.isActive}
+                      onChange={() => handleToggleActive(item)}
+                      disabled={isSaving}
+                      title={item.isActive ? 'Click to disable' : 'Click to enable'}
                     />
-                  ) : (
-                    item.minTrustScore
-                  )}
-                </Td>
-                <Td>
-                  <ActionButtons>
-                    {editingId === item.menuId ? (
-                      <>
-                        <Button variant="success" onClick={handleSave}>Save</Button>
-                        <Button variant="secondary" onClick={() => setEditingId(null)}>Cancel</Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button onClick={() => handleEdit(item)}>Edit</Button>
-                        <Button variant="danger" onClick={() => handleDelete(item.menuId)}>Delete</Button>
-                      </>
-                    )}
-                  </ActionButtons>
-                </Td>
-              </Tr>
-            ))}
+                  </Td>
+                  <Td>
+                    <div style={{ fontSize: '12px' }}>
+                      {(item.allowedUserTypes || []).length > 0 
+                        ? (item.allowedUserTypes || []).join(', ') 
+                        : <span style={{ color: '#9ca3af' }}>All</span>
+                      }
+                    </div>
+                  </Td>
+                  <Td>
+                    <div style={{ fontSize: '12px' }}>
+                      {(item.allowedWorkerTypes || []).length > 0 
+                        ? (item.allowedWorkerTypes || []).join(', ') 
+                        : <span style={{ color: '#9ca3af' }}>All</span>
+                      }
+                    </div>
+                  </Td>
+                  <Td>{item.minTrustScore || 0}</Td>
+                  <Td>
+                    <ActionButtons>
+                      <Button onClick={() => handleEdit(item)} disabled={isSaving} title="Edit menu configuration">Edit</Button>
+                      <Button $variant="danger" onClick={() => handleDelete(item.menuId)} disabled={isSaving}>Delete</Button>
+                    </ActionButtons>
+                  </Td>
+                </Tr>
+              );
+            })}
           </tbody>
         </Table>
+      )}
+
+      {/* Edit Modal */}
+      {showModal && (
+        <ModalOverlay onClick={() => !isSaving && setShowModal(false)}>
+          <Modal onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>Edit Menu: {editData.label}</ModalHeader>
+
+            <FormGroup>
+              <Label>Menu ID</Label>
+              <Input type="text" value={editData.menuId} disabled />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Label</Label>
+              <Input 
+                type="text" 
+                value={editData.label || ''} 
+                onChange={(e) => setEditData({ ...editData, label: e.target.value })}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Path</Label>
+              <Input 
+                type="text" 
+                value={editData.path || ''} 
+                onChange={(e) => setEditData({ ...editData, path: e.target.value })}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Min Trust Score</Label>
+              <Input 
+                type="number" 
+                value={editData.minTrustScore || 0} 
+                onChange={(e) => setEditData({ ...editData, minTrustScore: parseInt(e.target.value) })}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Allowed User Types</Label>
+              <CheckboxGroup>
+                {Object.values(UserTypeCategory).map((type) => (
+                  <CheckboxLabel key={type}>
+                    <input
+                      type="checkbox"
+                      checked={(editData.allowedUserTypes || []).includes(type)}
+                      onChange={() => toggleUserType(type)}
+                    />
+                    {type}
+                  </CheckboxLabel>
+                ))}
+              </CheckboxGroup>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Allowed Worker Types</Label>
+              <CheckboxGroup>
+                {Object.values(WorkerType).map((type) => (
+                  <CheckboxLabel key={type}>
+                    <input
+                      type="checkbox"
+                      checked={(editData.allowedWorkerTypes || []).includes(type)}
+                      onChange={() => toggleWorkerType(type)}
+                    />
+                    {type}
+                  </CheckboxLabel>
+                ))}
+              </CheckboxGroup>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Allowed Subscription Tiers</Label>
+              <CheckboxGroup>
+                {Object.values(SubscriptionTier).map((tier) => (
+                  <CheckboxLabel key={tier}>
+                    <input
+                      type="checkbox"
+                      checked={(editData.allowedSubscriptionTiers || []).includes(tier)}
+                      onChange={() => toggleSubscriptionTier(tier)}
+                    />
+                    {tier}
+                  </CheckboxLabel>
+                ))}
+              </CheckboxGroup>
+            </FormGroup>
+
+            <ModalFooter>
+              <Button 
+                $variant="secondary" 
+                onClick={() => setShowModal(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button 
+                $variant="success" 
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </ModalFooter>
+          </Modal>
+        </ModalOverlay>
       )}
     </Container>
   );

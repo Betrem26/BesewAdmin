@@ -79,13 +79,13 @@ const StatsBar = styled.div`
   margin-bottom: 30px;
 `;
 
-const StatCard = styled.div<{ gradient?: string }>`
-  background: ${props => props.gradient || 'white'};
+const StatCard = styled.div<{ $gradient?: string }>`
+  background: ${props => props.$gradient || 'white'};
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  color: ${props => props.gradient ? 'white' : '#2c3e50'};
-`;
+  color: ${props => props.$gradient ? 'white' : '#2c3e50'};
+` as any;
 
 const StatValue = styled.div`
   font-size: 32px;
@@ -215,13 +215,14 @@ const Td = styled.td`
   color: #2c3e50;
 `;
 
-const StatusBadge = styled.span<{ status: string }>`
+const StatusBadge = styled.span<{ $status?: string; status?: string }>`
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
   background: ${props => {
-    switch (props.status) {
+    const st = props.$status || props.status;
+    switch (st) {
       case 'completed': return '#d4edda';
       case 'pending': return '#fff3cd';
       case 'failed': return '#f8d7da';
@@ -230,7 +231,8 @@ const StatusBadge = styled.span<{ status: string }>`
     }
   }};
   color: ${props => {
-    switch (props.status) {
+    const st = props.$status || props.status;
+    switch (st) {
       case 'completed': return '#155724';
       case 'pending': return '#856404';
       case 'failed': return '#721c24';
@@ -238,7 +240,7 @@ const StatusBadge = styled.span<{ status: string }>`
       default: return '#383d41';
     }
   }};
-`;
+` as any;
 
 const AmountText = styled.span<{ positive?: boolean }>`
   font-weight: 600;
@@ -283,28 +285,28 @@ const PageButtons = styled.div`
   gap: 8px;
 `;
 
-const PageButton = styled.button<{ active?: boolean }>`
+const PageButton = styled.button<{ $active?: boolean; active?: boolean }>`
   padding: 8px 12px;
-  border: 1px solid ${props => props.active ? '#3498db' : '#ddd'};
-  background: ${props => props.active ? '#3498db' : 'white'};
-  color: ${props => props.active ? 'white' : '#2c3e50'};
+  border: 1px solid ${props => (props.$active || props.active) ? '#3498db' : '#ddd'};
+  background: ${props => (props.$active || props.active) ? '#3498db' : 'white'};
+  color: ${props => (props.$active || props.active) ? 'white' : '#2c3e50'};
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s;
 
   &:hover:not(:disabled) {
-    background: ${props => props.active ? '#2980b9' : '#f8f9fa'};
+    background: ${props => (props.$active || props.active) ? '#2980b9' : '#f8f9fa'};
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
-`;
+` as any;
 
-const Modal = styled.div<{ isOpen: boolean }>`
-  display: ${props => props.isOpen ? 'flex' : 'none'};
+const Modal = styled.div<{ $isOpen?: boolean; isOpen?: boolean }>`
+  display: ${props => (props.$isOpen || props.isOpen) ? 'flex' : 'none'};
   position: fixed;
   top: 0;
   left: 0;
@@ -315,7 +317,7 @@ const Modal = styled.div<{ isOpen: boolean }>`
   align-items: center;
   justify-content: center;
   overflow-y: auto;
-`;
+` as any;
 
 const ModalContent = styled.div`
   background: white;
@@ -488,7 +490,8 @@ const CommissionTracking: React.FC = () => {
       }
       if (searchQuery) params.search = searchQuery;
 
-      const response = await commissionApi.get('/commissions', { params });
+      // Use the commission/orders/search endpoint which is the correct one
+      const response = await commissionApi.get('/commission/orders/search', { params });
       
       setTransactions(response.data.transactions || response.data || []);
       setTotalPages(response.data.totalPages || 1);
@@ -576,28 +579,28 @@ const CommissionTracking: React.FC = () => {
       {error && <ErrorMessage>{error}</ErrorMessage>}
 
       <StatsBar>
-        <StatCard gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
           <StatValue>{formatCurrency(stats.totalRevenue)}</StatValue>
           <StatLabel>
             <FiTrendingUp />
             Total Revenue
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
           <StatValue>{formatCurrency(stats.pendingCommissions)}</StatValue>
           <StatLabel>
             <FiClock />
             Pending Commissions
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)">
           <StatValue>{stats.completedPayments.toLocaleString()}</StatValue>
           <StatLabel>
             <FiCheckCircle />
             Completed Payments
           </StatLabel>
         </StatCard>
-        <StatCard gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
+        <StatCard $gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)">
           <StatValue>{stats.failedTransactions.toLocaleString()}</StatValue>
           <StatLabel>
             <FiXCircle />
@@ -686,7 +689,7 @@ const CommissionTracking: React.FC = () => {
                   </div>
                 </Td>
                 <Td>
-                  <StatusBadge status={transaction.status}>
+                  <StatusBadge $status={transaction.status}>
                     {transaction.status}
                   </StatusBadge>
                 </Td>
@@ -722,7 +725,7 @@ const CommissionTracking: React.FC = () => {
               return (
                 <PageButton
                   key={page}
-                  active={currentPage === page}
+                  $active={currentPage === page}
                   onClick={() => setCurrentPage(page)}
                 >
                   {page}
@@ -739,7 +742,7 @@ const CommissionTracking: React.FC = () => {
         </Pagination>
       </TableCard>
 
-      <Modal isOpen={modalOpen}>
+      <Modal $isOpen={modalOpen}>
         <ModalContent>
           <ModalHeader>
             <ModalTitle>Transaction Details</ModalTitle>
@@ -777,7 +780,7 @@ const CommissionTracking: React.FC = () => {
                 <DetailRow>
                   <DetailLabel>Status:</DetailLabel>
                   <DetailValue>
-                    <StatusBadge status={selectedTransaction.status}>
+                    <StatusBadge $status={selectedTransaction.status}>
                       {selectedTransaction.status}
                     </StatusBadge>
                   </DetailValue>

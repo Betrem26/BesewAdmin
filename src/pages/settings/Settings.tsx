@@ -17,15 +17,15 @@ const TabsContainer = styled.div`
   padding: 0 30px;
 `;
 
-const Tab = styled.button<{ active: boolean }>`
+const Tab = styled.button<{ $active: boolean }>`
   padding: 16px 24px;
   border: none;
   background: none;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: ${props => props.active ? '#3498db' : '#666'};
-  border-bottom: 3px solid ${props => props.active ? '#3498db' : 'transparent'};
+  color: ${props => props.$active ? '#3498db' : '#666'};
+  border-bottom: 3px solid ${props => props.$active ? '#3498db' : 'transparent'};
   transition: all 0.2s;
 
   &:hover {
@@ -43,10 +43,10 @@ const Settings: React.FC = () => {
   return (
     <SettingsContainer>
       <TabsContainer>
-        <Tab active={activeTab === 'menu'} onClick={() => setActiveTab('menu')}>
+        <Tab $active={activeTab === 'menu'} onClick={() => setActiveTab('menu')}>
           Menu Management
         </Tab>
-        <Tab active={activeTab === 'roles'} onClick={() => setActiveTab('roles')}>
+        <Tab $active={activeTab === 'roles'} onClick={() => setActiveTab('roles')}>
           Role Management
         </Tab>
       </TabsContainer>

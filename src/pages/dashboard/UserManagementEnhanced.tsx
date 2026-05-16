@@ -5,6 +5,8 @@ import accountsApi, { Account } from '../../services/accountsApi';
 import { accountReportsApi, AccountRating } from '../../services/accountReportsApi';
 import { partyApi } from '../../services/api';
 import UserProfileModal from '../../components/UserProfileModal';
+import MfaActionModal, { MfaActionType } from '../../components/MfaActionModal';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 import { toast } from 'react-toastify';
 import RegistrationTrendsCard from '../../components/charts/RegistrationTrendsCard';
 
@@ -22,6 +24,8 @@ const UserManagementEnhanced: React.FC = () => {
   const [searchType, setSearchType] = useState<'all' | 'name' | 'email' | 'phone' | 'id'>('all');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [mfaTarget, setMfaTarget] = useState<{ account: Account; action: MfaActionType; newRole?: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
   const [partyTypeFilter, setPartyTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -123,34 +127,26 @@ const UserManagementEnhanced: React.FC = () => {
   };
 
   const handleDelete = async (partyId: string) => {
-    if (!window.confirm('Are you sure you want to delete this account?')) return;
     try {
       await accountsApi.deleteAccount(partyId);
       setAccounts(prev => prev.filter(a => a.party_id !== partyId));
-      toast.success('Account deleted');
+      toast.success('Account deleted successfully');
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to delete account');
+      throw err;
     }
   };
 
-  const handlePromote = async (partyId: string) => {
-    try {
-      await accountsApi.promoteToAdmin(partyId);
-      setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'admin' } : a));
-      toast.success('User promoted to admin');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to promote user');
-    }
+  const handlePromote = async (partyId: string, reason: string, mfaChallengeId: string) => {
+    await accountsApi.promoteToAdmin(partyId, reason, mfaChallengeId);
+    setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'admin' } : a));
+    toast.success('User promoted to admin');
   };
 
-  const handleDemote = async (partyId: string) => {
-    try {
-      await accountsApi.demoteToUser(partyId);
-      setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'user' } : a));
-      toast.success('Admin demoted to user');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to demote admin');
-    }
+  const handleDemote = async (partyId: string, reason: string, mfaChallengeId: string) => {
+    await accountsApi.demoteToUser(partyId, reason, mfaChallengeId);
+    setAccounts(prev => prev.map(a => a.party_id === partyId ? { ...a, role: 'user' } : a));
+    toast.success('Admin demoted to user');
   };
 
   const handleExport = () => {
@@ -383,7 +379,7 @@ const UserManagementEnhanced: React.FC = () => {
                 <IconButton title="View Details" onClick={() => openModal(phoneSearchResult)}>
                   <FiEye />
                 </IconButton>
-                <IconButton $danger title="Delete" onClick={() => handleDelete(phoneSearchResult.party_id)}>
+                <IconButton $danger title="Delete" onClick={() => setDeleteTarget(phoneSearchResult)}>
                   <FiTrash2 />
                 </IconButton>
               </PhoneResultActions>
@@ -464,16 +460,16 @@ const UserManagementEnhanced: React.FC = () => {
                       <FiEye />
                     </IconButton>
                     {account.role === 'user' && (
-                      <IconButton title="Promote to Admin" onClick={() => handlePromote(account.party_id)}>
+                      <IconButton title="Promote to Admin" onClick={() => setMfaTarget({ account, action: 'promote' })}>
                         <FiShield />
                       </IconButton>
                     )}
                     {account.role === 'admin' && (
-                      <IconButton title="Demote to User" onClick={() => handleDemote(account.party_id)}>
+                      <IconButton title="Demote to User" onClick={() => setMfaTarget({ account, action: 'demote' })}>
                         <FiUserX />
                       </IconButton>
                     )}
-                    <IconButton $danger title="Delete" onClick={() => handleDelete(account.party_id)}>
+                    <IconButton $danger title="Delete" onClick={() => setDeleteTarget(account)}>
                       <FiTrash2 />
                     </IconButton>
                   </ActionButtons>
@@ -501,6 +497,42 @@ const UserManagementEnhanced: React.FC = () => {
         <UserProfileModal
           account={selectedAccount}
           onClose={() => { setModalOpen(false); setSelectedAccount(null); }}
+        />
+      )}
+
+      <DeleteConfirmModal
+        isOpen={!!deleteTarget}
+        name={deleteTarget?.profile_name || ''}
+        onConfirm={async () => { if (deleteTarget) await handleDelete(deleteTarget.party_id); }}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      {mfaTarget && (
+        <MfaActionModal
+          isOpen={!!mfaTarget}
+          actionType={mfaTarget.action}
+          targetName={mfaTarget.account.profile_name}
+          targetPartyId={mfaTarget.account.party_id}
+          newRole={mfaTarget.newRole}
+          onConfirm={async (reason, mfaChallengeId) => {
+            if (mfaTarget.action === 'promote') {
+              await handlePromote(mfaTarget.account.party_id, reason, mfaChallengeId);
+            } else if (mfaTarget.action === 'demote') {
+              await handleDemote(mfaTarget.account.party_id, reason, mfaChallengeId);
+            } else if (mfaTarget.action === 'role-change' && mfaTarget.newRole) {
+              await accountsApi.adminRoleChange({
+                target_party_id: mfaTarget.account.party_id,
+                new_role: mfaTarget.newRole,
+                reason,
+                mfa_challenge_id: mfaChallengeId,
+              });
+              setAccounts(prev => prev.map(a =>
+                a.party_id === mfaTarget.account.party_id ? { ...a, role: mfaTarget.newRole! } : a
+              ));
+              toast.success(`Role changed to ${mfaTarget.newRole}`);
+            }
+          }}
+          onClose={() => setMfaTarget(null)}
         />
       )}
     </Container>

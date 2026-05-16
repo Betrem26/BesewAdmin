@@ -20,6 +20,8 @@ import CompanyManagement from './pages/dashboard/CompanyManagement';
 import StartupManagement from './pages/dashboard/StartupManagement';
 import CandidateManagement from './pages/dashboard/CandidateManagement';
 import CommissionTracking from './pages/dashboard/CommissionTracking';
+import CommissionManagement from './pages/dashboard/CommissionManagement';
+import SubscriptionManagement from './pages/dashboard/SubscriptionManagement';
 import NotificationCenter from './pages/dashboard/NotificationCenter';
 import AuditLogs from './pages/dashboard/AuditLogs';
 import RoleManagement from './pages/RoleManagement';
@@ -73,6 +75,8 @@ function App() {
             <Route path="startups" element={<StartupManagement />} />
             <Route path="candidates" element={<CandidateManagement />} />
             <Route path="commissions" element={<CommissionTracking />} />
+            <Route path="commission-management" element={<CommissionManagement />} />
+            <Route path="subscriptions" element={<SubscriptionManagement />} />
             <Route path="notifications" element={<NotificationCenter />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="roles" element={<RoleManagement />} />

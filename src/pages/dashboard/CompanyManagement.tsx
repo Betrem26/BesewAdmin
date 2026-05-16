@@ -503,12 +503,12 @@ const CompanyManagement: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [verifyModalCompany, setVerifyModalCompany] = useState<Company | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [frequencyFilter, setFrequencyFilter] = useState('all');
-  const [deleteTarget, setDeleteTarget] = useState<Company | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [stats, setStats] = useState({ total: 0, pending: 0, verified: 0, rejected: 0 });
 

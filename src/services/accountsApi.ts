@@ -102,15 +102,15 @@ const accountsApi = {
     await accountApi.delete('/accounts/me');
   },
 
-  // PUT /accounts/admin/promote/{partyId} - Promote user to admin (Super Admin Only)
-  promoteToAdmin: async (partyId: string): Promise<Account> => {
-    const response = await accountApi.put(`/accounts/admin/promote/${partyId}`);
+  // PUT /accounts/admin/promote/{partyId} - MFA Required
+  promoteToAdmin: async (partyId: string, reason: string, mfa_challenge_id: string): Promise<any> => {
+    const response = await accountApi.put(`/accounts/admin/promote/${partyId}`, { reason, mfa_challenge_id });
     return response.data;
   },
 
-  // PUT /accounts/admin/demote/{partyId} - Demote admin to user (Super Admin Only)
-  demoteToUser: async (partyId: string): Promise<Account> => {
-    const response = await accountApi.put(`/accounts/admin/demote/${partyId}`);
+  // PUT /accounts/admin/demote/{partyId} - MFA Required
+  demoteToUser: async (partyId: string, reason: string, mfa_challenge_id: string): Promise<any> => {
+    const response = await accountApi.put(`/accounts/admin/demote/${partyId}`, { reason, mfa_challenge_id });
     return response.data;
   },
 
@@ -182,6 +182,12 @@ const accountsApi = {
     pagination: { page: number; limit: number; total: number; pages: number };
   }> => {
     const response = await accountApi.get(`/accounts/activity-logs?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  // GET /accounts/{partyId}/roles
+  getRoles: async (partyId: string): Promise<{ party_id: string; roles: string[] }> => {
+    const response = await accountApi.get(`/accounts/${partyId}/roles`);
     return response.data;
   },
 

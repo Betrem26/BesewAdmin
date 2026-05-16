@@ -184,6 +184,8 @@ const menuItems: { section: string; items: MenuItem[] }[] = [
     section: 'Financial',
     items: [
       { path: '/dashboard/commissions', label: 'Commissions', icon: <FiTrendingUp />, permission: 'VIEW_FINANCIAL_STATISTICS' },
+      { path: '/dashboard/commission-management', label: 'Commission Management', icon: <FiBarChart2 />, permission: 'VIEW_FINANCIAL_STATISTICS' },
+      { path: '/dashboard/subscriptions', label: 'Subscription Plans', icon: <FiTarget /> },
     ],
   },
   {

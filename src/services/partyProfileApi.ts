@@ -32,6 +32,25 @@ export interface PartyProfile {
     end_date?: string;
     gpa?: number;
     graduated?: boolean;
+    document?: string;
+    certificate?: string;
+    file?: string;
+    edu_document?: string;
+    education_document?: string;
+    attachment?: string;
+    doc?: string;
+    fileUrl?: string;
+    file_url?: string;
+    documentUrl?: string;
+    document_url?: string;
+    upload?: string;
+    uploaded_file?: string;
+    cert?: string;
+    cert_file?: string;
+    certification?: string;
+    transcript?: string;
+    diploma?: string;
+    [key: string]: any;
   }[];
   experiance?: {
     sn?: number;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import styled, { keyframes } from 'styled-components';
-import { FiX, FiDownload, FiMapPin, FiCalendar, FiBriefcase, FiBook, FiGlobe, FiShield, FiCheckCircle, FiClock, FiUser, FiAward, FiAlertCircle } from 'react-icons/fi';
+import { FiX, FiDownload, FiMapPin, FiCalendar, FiBriefcase, FiBook, FiGlobe, FiShield, FiCheckCircle, FiClock, FiUser, FiAward, FiAlertCircle, FiFileText, FiEye, FiChevronLeft } from 'react-icons/fi';
 import { Account } from '../services/accountsApi';
 import partyProfileApi, { PartyProfile } from '../services/partyProfileApi';
 
@@ -18,6 +18,7 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'education' | 'experience'>('overview');
+  const [docViewer, setDocViewer] = useState<{ url: string; name: string } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -48,6 +49,19 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
     if (path.startsWith('/')) return `${PARTY_BASE}${path}`;
     return `${PARTY_BASE}/company-data/file/${path}`;
   };
+
+  const getDocUrl = (e: { [key: string]: any }) => {
+    const raw =
+      e.document || e.certificate || e.file || e.edu_document ||
+      e.education_document || e.attachment || e.doc || e.fileUrl ||
+      e.file_url || e.documentUrl || e.document_url || e.upload ||
+      e.uploaded_file || e.edu_file || e.cert || e.cert_file ||
+      e.certification || e.transcript || e.diploma;
+    return buildUrl(raw);
+  };
+
+  const isPdf = (url: string) => url.toLowerCase().includes('.pdf') || url.toLowerCase().includes('pdf');
+  const isImage = (url: string) => /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(url);
 
   const photoUrl = buildUrl(profile?.photo);
   const resumeUrl = buildUrl(profile?.resume_file_upload);
@@ -209,21 +223,70 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
           {!loading && !error && activeTab === 'education' && (
             edu.length === 0
               ? <Empty><FiBook size={32} /><p>No education records</p></Empty>
-              : <Timeline>
-                  {edu.map((e, i) => (
-                    <TimelineItem key={i}>
-                      <TimelineDot />
-                      <TimelineContent>
-                        <TimelineTitle>{e.institute}</TimelineTitle>
-                        <TimelineSubtitle>{e.level?.replace(/_/g, ' ')} · {e.fieldOfStudies}</TimelineSubtitle>
-                        <TimelineMeta>
-                          {formatDate(e.start_date)} — {e.graduated ? formatDate(e.end_date) : 'Present'}
-                          {e.gpa && <GpaBadge>GPA {e.gpa}</GpaBadge>}
-                        </TimelineMeta>
-                      </TimelineContent>
-                    </TimelineItem>
-                  ))}
-                </Timeline>
+              : docViewer
+                ? (
+                  <DocViewerWrap>
+                    <DocViewerBar>
+                      <BackBtn onClick={() => setDocViewer(null)}>
+                        <FiChevronLeft size={15} /> Back to Education
+                      </BackBtn>
+                      <DocViewerName>{docViewer.name}</DocViewerName>
+                      <DocViewerActions>
+                        <DownloadBtn href={docViewer.url} target="_blank" rel="noopener noreferrer" download>
+                          <FiDownload size={13} /> Download
+                        </DownloadBtn>
+                        <DownloadBtn href={docViewer.url} target="_blank" rel="noopener noreferrer" style={{ background: '#805ad5' }}>
+                          <FiEye size={13} /> Open in Tab
+                        </DownloadBtn>
+                      </DocViewerActions>
+                    </DocViewerBar>
+                    {isPdf(docViewer.url) ? (
+                      <DocFrame src={docViewer.url} title={docViewer.name} />
+                    ) : isImage(docViewer.url) ? (
+                      <DocImageWrap>
+                        <DocImage src={docViewer.url} alt={docViewer.name}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </DocImageWrap>
+                    ) : (
+                      <DocFallback>
+                        <FiFileText size={48} color="#a0aec0" />
+                        <p>Cannot preview this file type.</p>
+                        <DownloadBtn href={docViewer.url} target="_blank" rel="noopener noreferrer">
+                          <FiDownload size={13} /> Download to View
+                        </DownloadBtn>
+                      </DocFallback>
+                    )}
+                  </DocViewerWrap>
+                )
+                : (
+                  <Timeline>
+                    {edu.map((e, i) => {
+                      const docUrl = getDocUrl(e);
+                      return (
+                        <TimelineItem key={i}>
+                          <TimelineDot />
+                          <TimelineContent>
+                            <TimelineTitle>{e.institute}</TimelineTitle>
+                            <TimelineSubtitle>{e.level?.replace(/_/g, ' ')} · {e.fieldOfStudies}</TimelineSubtitle>
+                            <TimelineMeta>
+                              {formatDate(e.start_date)} — {e.graduated ? formatDate(e.end_date) : 'Present'}
+                              {e.gpa && <GpaBadge>GPA {e.gpa}</GpaBadge>}
+                              {e.graduated && <GpaBadge style={{ background: '#c6f6d5', color: '#276749' }}>Graduated</GpaBadge>}
+                            </TimelineMeta>
+                            {docUrl ? (
+                              <DocBtn onClick={() => setDocViewer({ url: docUrl, name: `${e.institute} — ${e.level}` })}>
+                                <FiFileText size={13} /> View Document
+                              </DocBtn>
+                            ) : (
+                              <NoDocNote><FiAlertCircle size={11} /> No document uploaded</NoDocNote>
+                            )}
+                          </TimelineContent>
+                        </TimelineItem>
+                      );
+                    })}
+                  </Timeline>
+                )
           )}
 
           {!loading && !error && activeTab === 'experience' && (
@@ -444,4 +507,57 @@ const TimelineDesc = styled.div`font-size:12px;color:#4a5568;margin-top:6px;line
 const GpaBadge = styled.span`
   background:#fef3c7;color:#92400e;
   border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;
+`;
+const DocBtn = styled.button`
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 8px; padding: 5px 12px;
+  border-radius: 6px; border: 1.5px solid #bee3f8;
+  background: #ebf8ff; color: #2b6cb0;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+  &:hover { background: #4299e1; color: white; border-color: #4299e1; }
+`;
+const NoDocNote = styled.div`
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 8px; font-size: 11px; color: #a0aec0;
+`;
+const DocViewerWrap = styled.div`
+  display: flex; flex-direction: column; gap: 0;
+  border-radius: 10px; overflow: hidden;
+  border: 1px solid #e2e8f0;
+`;
+const DocViewerBar = styled.div`
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #f7fafc; border-bottom: 1px solid #e2e8f0;
+`;
+const BackBtn = styled.button`
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 6px;
+  border: 1px solid #e2e8f0; background: white;
+  font-size: 12px; font-weight: 600; color: #4a5568; cursor: pointer;
+  transition: all 0.15s;
+  &:hover { background: #edf2f7; }
+`;
+const DocViewerName = styled.span`
+  flex: 1; font-size: 13px; font-weight: 600; color: #2d3748;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const DocViewerActions = styled.div`display: flex; gap: 6px; flex-shrink: 0;`;
+const DocFrame = styled.iframe`
+  width: 100%; height: 520px; border: none; background: #f7fafc;
+`;
+const DocImageWrap = styled.div`
+  padding: 16px; background: #f7fafc;
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 300px;
+`;
+const DocImage = styled.img`
+  max-width: 100%; max-height: 500px;
+  border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+`;
+const DocFallback = styled.div`
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 48px; background: #f7fafc;
+  p { font-size: 14px; color: #718096; margin: 0; }
 `;
