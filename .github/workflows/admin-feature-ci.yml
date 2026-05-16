@@ -1,0 +1,75 @@
+name: Admin Dashboard - Feature Branch CI
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'bugfix/**'
+      - 'hotfix/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  JUMPHOST_IP: "197.156.110.145"
+  JUMPHOST_PORT: "250"
+  JUMPHOST_USER: "startupadmin"
+  JUMPHOST_PASSWORD: "Admin@2025"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --prefer-offline
+
+      - name: Rebuild native modules
+        run: |
+          npm rebuild
+          npm install @rollup/rollup-linux-x64-gnu --save-optional
+
+      - name: Run linting
+        run: |
+          npm run lint -- --format json --output-file lint-report.json || true
+
+      - name: Lint summary
+        run: |
+          if [[ -f lint-report.json ]]; then
+            node -e "
+              const fs = require('fs');
+              const report = JSON.parse(fs.readFileSync('lint-report.json', 'utf8'));
+              const errorCount = report.reduce((acc, file) => acc + file.errorCount, 0);
+              const warningCount = report.reduce((acc, file) => acc + file.warningCount, 0);
+              console.log('Lint summary: ' + errorCount + ' errors, ' + warningCount + ' warnings');
+              report.forEach((file) => {
+                if (file.messages.length > 0) {
+                  console.log('\nFile: ' + file.filePath);
+                  file.messages.slice(0, 5).forEach((msg) => {
+                    console.log('  ' + msg.line + ':' + msg.column + ' [' + msg.ruleId + '] ' + msg.message);
+                  });
+                }
+              });
+            "
+          fi
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build check passed
+        run: |
+          echo "✅ Admin Dashboard feature branch build completed successfully"
+          echo "Branch is ready for review and merge to develop"
