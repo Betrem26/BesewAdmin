@@ -1,0 +1,337 @@
+================================================================================
+MENU MANAGEMENT - QUICK REFERENCE GUIDE
+================================================================================
+
+ACCESS THE FEATURE:
+1. Navigate to: /settings
+2. Click "Menu Management" tab
+3. View all menu configurations in table
+
+================================================================================
+FEATURES AT A GLANCE
+================================================================================
+
+SEED DEFAULT MENUS:
+- Button: Top right of page
+- Action: Click → Confirm → Menus populate
+- Endpoint: POST /api/v1/menu-config/seed
+
+TOGGLE ACTIVE STATUS:
+- Location: "Active" column in table
+- Action: Click toggle switch
+- Result: Instant update (no modal needed)
+- Endpoint: PUT /api/v1/menu-config/{menuId}
+
+EDIT MENU:
+- Button: "Edit" in Actions column
+- Action: Click → Modal opens → Modify fields → Save
+- Fields: Label, Path, Min Trust Score, User Types, Worker Types, Subscription Tiers
+- Endpoint: PUT /api/v1/menu-config/{menuId}
+
+DELETE MENU:
+- Button: "Delete" in Actions column
+- Action: Click → Confirm → Menu removed
+- Endpoint: DELETE /api/v1/menu-config/{menuId}
+
+VIEW HIERARCHY:
+- Parent menus display first
+- Child menus indented with "└─" prefix
+- Automatic sorting by hierarchy level
+
+================================================================================
+TABLE COLUMNS
+================================================================================
+
+Menu          - Menu label with badge (if applicable)
+Path          - Route path for the menu
+Icon          - Emoji or icon character
+Active        - Toggle switch to enable/disable
+User Types    - Allowed user types (or "All")
+Worker Types  - Allowed worker types (or "All")
+Min Trust Score - Minimum trust score requirement
+Actions       - Edit and Delete buttons
+
+================================================================================
+EDIT MODAL FIELDS
+================================================================================
+
+Menu ID                    - Read-only identifier
+Label                      - Menu display name
+Path                       - Route path
+Min Trust Score            - Numeric value (0+)
+Allowed User Types         - Checkboxes:
+                             • JOB_SEEKER
+                             • GIG_WORKER
+                             • EMPLOYER
+                             • AGGREGATOR
+                             • STARTUP_FOUNDER
+Allowed Worker Types       - Checkboxes:
+                             • EMPLOYEE
+                             • FREELANCER
+                             • CONSULTANT
+                             • CONTRACTOR
+                             • BOTH
+Allowed Subscription Tiers - Checkboxes:
+                             • FREE
+                             • TRIAL
+                             • STANDARD
+                             • GROWTH
+                             • PROFESSIONAL
+                             • PREMIUM
+                             • ENTERPRISE
+
+================================================================================
+API ENDPOINTS
+================================================================================
+
+GET /api/v1/menu-config
+  - Fetch all menu configurations
+  - Called on component mount
+  - Used by: fetchAllMenuConfigs thunk
+
+GET /api/v1/menu-config/{menuId}
+  - Fetch specific menu configuration
+  - Used by: getMenuConfig API method
+
+POST /api/v1/menu-config
+  - Create new menu configuration
+  - Used by: createMenuConfig thunk
+
+PUT /api/v1/menu-config/{menuId}
+  - Update menu configuration
+  - Used by: updateMenuConfig thunk
+  - Called when: Editing menu or toggling active status
+
+DELETE /api/v1/menu-config/{menuId}
+  - Delete menu configuration
+  - Used by: deleteMenuConfig thunk
+
+POST /api/v1/menu-config/seed
+  - Seed default menu configurations
+  - Used by: seedDefaultMenus thunk
+  - Called when: "Seed Default Menus" button clicked
+
+POST /api/v1/menu-config/bulk-update
+  - Bulk update multiple menus
+  - Used by: bulkUpdateMenuConfigs thunk
+
+================================================================================
+REDUX STATE STRUCTURE
+================================================================================
+
+menuConfig: {
+  items: [
+    {
+      menuId: string,
+      label: string,
+      path: string,
+      icon: string,
+      description: string,
+      badge: string,
+      isActive: boolean,
+      allowedUserTypes: string[],
+      allowedWorkerTypes: string[],
+      minTrustScore: number,
+      allowedSubscriptionTiers: string[],
+      order: number,
+      parentMenuId: string (optional)
+    }
+  ],
+  loading: boolean,
+  error: string | null,
+  success: boolean
+}
+
+================================================================================
+COMPONENT STRUCTURE
+================================================================================
+
+MenuManagement Component
+├── Header
+│   ├── Title
+│   └── Seed Button
+├── Alerts
+│   ├── Error Alert (if error)
+│   └── Success Alert (if success)
+├── Table
+│   ├── Header Row
+│   └── Data Rows
+│       ├── Menu Label (with indentation for children)
+│       ├── Path
+│       ├── Icon
+│       ├── Active Toggle
+│       ├── User Types
+│       ├── Worker Types
+│       ├── Min Trust Score
+│       └── Actions (Edit, Delete)
+└── Edit Modal (if showModal)
+    ├── Form Fields
+    ├── Multi-select Checkboxes
+    └── Action Buttons (Cancel, Save)
+
+================================================================================
+KEYBOARD SHORTCUTS
+================================================================================
+
+ESC              - Close edit modal
+Tab              - Navigate through form fields
+Enter            - Submit form (when focused on Save button)
+Space            - Toggle checkbox or toggle switch
+
+================================================================================
+COMMON WORKFLOWS
+================================================================================
+
+WORKFLOW 1: Set up default menus
+1. Click "Seed Default Menus" button
+2. Confirm in dialog
+3. Wait for menus to populate
+4. Verify all default menus appear in table
+
+WORKFLOW 2: Disable a menu
+1. Find menu in table
+2. Click toggle switch in "Active" column
+3. Verify toggle changes color (green → gray)
+4. Refresh page to verify persistence
+
+WORKFLOW 3: Restrict menu to specific users
+1. Click "Edit" button for menu
+2. Uncheck all user types except desired ones
+3. Click "Save Changes"
+4. Verify modal closes and table updates
+5. Refresh page to verify persistence
+
+WORKFLOW 4: Set minimum trust score
+1. Click "Edit" button for menu
+2. Enter numeric value in "Min Trust Score" field
+3. Click "Save Changes"
+4. Verify modal closes and table updates
+
+WORKFLOW 5: Delete a menu
+1. Click "Delete" button for menu
+2. Confirm in dialog
+3. Verify menu removed from table
+4. Refresh page to verify deletion persists
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+PROBLEM: Menus not loading
+SOLUTION: 
+- Check browser console for errors
+- Verify API endpoint /api/v1/menu-config is accessible
+- Check Redux DevTools for state
+- Verify authentication token is valid
+
+PROBLEM: Toggle not updating
+SOLUTION:
+- Check Network tab for PUT request
+- Verify API endpoint /api/v1/menu-config/{menuId} is accessible
+- Check browser console for errors
+- Verify response includes updated data
+
+PROBLEM: Modal not closing after save
+SOLUTION:
+- Check Network tab for PUT request
+- Verify API response includes updated menu data
+- Check Redux DevTools for state update
+- Check browser console for errors
+
+PROBLEM: Seed button not working
+SOLUTION:
+- Check Network tab for POST request
+- Verify API endpoint /api/v1/menu-config/seed is accessible
+- Check browser console for errors
+- Verify response includes seeded menus
+
+PROBLEM: Changes not persisting after refresh
+SOLUTION:
+- Check Redux DevTools for state
+- Verify API calls are successful
+- Check browser console for errors
+- Verify localStorage is not disabled
+
+================================================================================
+PERFORMANCE TIPS
+================================================================================
+
+- Menus are fetched fresh on component mount
+- Toggle updates are sent immediately (no debounce)
+- Modal only renders when visible
+- Only affected rows re-render on update
+- Hierarchy calculation uses circular reference prevention
+
+For large datasets (100+ menus):
+- Sorting is O(n log n) - efficient
+- Rendering is optimized with styled-components
+- Consider adding pagination if needed
+
+================================================================================
+ACCESSIBILITY FEATURES
+================================================================================
+
+✓ Proper form labels for all inputs
+✓ Modal has proper heading structure
+✓ Buttons have descriptive text
+✓ Toggle switch is keyboard accessible
+✓ Tab navigation works through form fields
+✓ ESC key closes modal
+✓ Error and success messages are announced
+✓ Color contrast meets WCAG standards
+✓ Hover tooltips on toggle switches
+
+================================================================================
+BROWSER COMPATIBILITY
+================================================================================
+
+Tested and working on:
+✓ Chrome 90+
+✓ Firefox 88+
+✓ Safari 14+
+✓ Edge 90+
+
+Features used:
+- CSS Grid and Flexbox
+- CSS Custom Properties
+- ES6+ JavaScript
+- React 18+
+- Redux Toolkit
+
+================================================================================
+FILE LOCATIONS
+================================================================================
+
+Component:
+  src/pages/settings/MenuManagement.tsx
+
+Redux Slice:
+  src/store/features/menuConfigSlice.ts
+
+API Service:
+  src/services/menuConfigApi.ts
+
+Settings Page:
+  src/pages/settings/Settings.tsx
+
+Store Configuration:
+  src/store/store.ts
+
+App Routing:
+  src/App.tsx
+
+Integration Tests:
+  src/__tests__/menuConfigIntegration.test.ts
+
+================================================================================
+SUPPORT CONTACTS
+================================================================================
+
+For issues or questions:
+1. Check browser console for error messages
+2. Open Redux DevTools to inspect state
+3. Check Network tab to verify API calls
+4. Review this quick reference guide
+5. Contact development team with error details
+
+================================================================================

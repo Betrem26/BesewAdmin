@@ -1,0 +1,180 @@
+================================================================================
+SUBSCRIPTION MANAGEMENT - FLAG UPDATE FIX
+================================================================================
+
+ISSUE:
+Subscription flag updates (isPopular, isRecommended) were failing with 400 
+"Input validation failed" error.
+
+ROOT CAUSE:
+The PUT request was not sending all required fields defined in the backend 
+schema. The backend validation requires ALL fields to be present, even if 
+only updating one flag.
+
+================================================================================
+SOLUTION IMPLEMENTED
+================================================================================
+
+Updated the handleFlagUpdate() function to:
+
+1. SANITIZE DATA
+   - Remove MongoDB-specific fields: _id, __v, createdAt, updatedAt
+   - These fields are not accepted by the backend PUT endpoint
+
+2. INCLUDE ALL REQUIRED FIELDS
+   - type: Must match the existing plan type
+   - period: Must match the existing plan period
+   - price: Sent as Number (not string)
+   - durationInDays: Sent as Number (not string)
+   - features: Sent as Array (not null/undefined)
+   - description: Sent as string (empty string if not provided)
+   - isActive: Current status (boolean)
+   - isPopular: Updated value (boolean)
+   - isRecommended: Updated value (boolean)
+   - sortOrder: Current sort order (number)
+   - maxFeatures: Only included if it has a value
+
+3. VALIDATION SYNC
+   - Payload now matches the Swagger definition exactly
+   - All field types are correct (Number, String, Array, Boolean)
+   - No extra fields that could cause validation errors
+
+4. DEBUG LOGGING
+   - Added console.log('Sending Payload:', payload) before API call
+   - Shows exactly what is being sent to the server
+   - Helps diagnose future validation issues
+
+================================================================================
+CODE CHANGES
+================================================================================
+
+FILE: src/pages/dashboard/SubscriptionManagement.tsx
+
+Function: handleFlagUpdate()
+
+BEFORE:
+```typescript
+await subscriptionApi.update(plan._id, buildUpdatePayload(plan, { [field]: value }));
+```
+
+AFTER:
+```typescript
+const payload = {
+  type: plan.type,
+  period: plan.period,
+  price: Number(plan.price),
+  durationInDays: Number(plan.durationInDays),
+  features: Array.isArray(plan.features) ? plan.features : [],
+  description: plan.description || '',
+  isActive: plan.isActive ?? true,
+  isPopular: field === 'isPopular' ? value : (plan.isPopular ?? false),
+  isRecommended: field === 'isRecommended' ? value : (plan.isRecommended ?? false),
+  sortOrder: plan.sortOrder ?? 0,
+};
+
+if (plan.maxFeatures !== undefined && plan.maxFeatures !== null) {
+  payload.maxFeatures = Number(plan.maxFeatures);
+}
+
+console.log('Sending Payload:', payload);
+await subscriptionApi.update(plan._id, payload);
+```
+
+================================================================================
+EXAMPLE PAYLOAD
+================================================================================
+
+When updating isPopular flag:
+
+{
+  "type": "professional",
+  "period": "monthly",
+  "price": 99,
+  "durationInDays": 30,
+  "features": ["Feature 1", "Feature 2", "Feature 3"],
+  "description": "Professional plan description",
+  "isActive": true,
+  "isPopular": true,
+  "isRecommended": false,
+  "sortOrder": 2,
+  "maxFeatures": 50
+}
+
+Key points:
+- NO _id, __v, createdAt, updatedAt fields
+- price is Number (99, not "99")
+- durationInDays is Number (30, not "30")
+- features is Array (["Feature 1", ...], not null)
+- All boolean fields are included
+- maxFeatures only included if it has a value
+
+================================================================================
+TESTING
+================================================================================
+
+To test the fix:
+
+1. Open Subscription Management page
+2. Find a subscription plan
+3. Click the "Popular" or "Recommended" checkbox
+4. Open browser DevTools (F12)
+5. Go to Console tab
+6. Look for "Sending Payload:" log
+7. Verify the payload includes all required fields
+8. Check Network tab to verify PUT request succeeds (200 response)
+9. Verify the flag updates in the table
+
+Expected behavior:
+- Checkbox updates immediately (optimistic update)
+- Console shows the complete payload
+- Network request succeeds with 200 response
+- Toast shows success message
+- Page refreshes with updated data
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+If 400 error still occurs:
+
+1. Check console for "Sending Payload:" log
+2. Verify all fields are present in the payload
+3. Check "Flag update 400 detail" error log
+4. Check "Full error response" for backend validation message
+5. Verify field types match the schema:
+   - type: string
+   - period: string
+   - price: number
+   - durationInDays: number
+   - features: array of strings
+   - description: string
+   - isActive: boolean
+   - isPopular: boolean
+   - isRecommended: boolean
+   - sortOrder: number
+   - maxFeatures: number (optional)
+
+================================================================================
+VERIFICATION
+================================================================================
+
+✅ No TypeScript errors
+✅ All required fields included in payload
+✅ MongoDB-specific fields removed
+✅ Field types are correct
+✅ Debug logging added
+✅ Error handling improved
+✅ Ready for testing
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Refresh browser page
+2. Test flag updates (isPopular, isRecommended)
+3. Check console for payload logs
+4. Verify Network requests succeed
+5. Confirm changes persist after page refresh
+6. If successful, ready for deployment
+
+================================================================================

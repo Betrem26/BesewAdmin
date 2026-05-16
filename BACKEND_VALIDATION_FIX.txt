@@ -1,0 +1,156 @@
+================================================================================
+MENU MANAGEMENT - BACKEND VALIDATION FIX
+================================================================================
+
+ISSUE:
+PUT https://stage-account.besewonline.com/api/v1/menu-config/{menuId} 400 (Bad Request)
+Error: "Input validation failed"
+
+ROOT CAUSE:
+The backend API has strict input validation that requires ALL fields to be
+present in the PUT request, not just the fields being updated. Sending only
+partial fields causes validation to fail.
+
+SOLUTION APPLIED:
+Modified the update payload to send ALL menu fields, not just the ones being
+edited. This ensures the backend validation passes.
+
+================================================================================
+CHANGES MADE
+================================================================================
+
+FILE: src/pages/settings/MenuManagement.tsx
+
+1. handleSave() - Line 310
+   Before: Sent only editable fields
+   After:  Sends all menu fields
+   
+   Now includes:
+   - menuId
+   - label
+   - path
+   - icon
+   - description
+   - badge
+   - isActive
+   - minTrustScore
+   - allowedUserTypes
+   - allowedWorkerTypes
+   - allowedSubscriptionTiers
+   - order
+   - parentMenuId
+
+2. handleToggleActive() - Line 336
+   Before: Sent only { isActive: !item.isActive }
+   After:  Sends all menu fields with isActive toggled
+   
+   Now includes all fields from the menu item
+
+FILE: src/services/menuConfigApi.ts
+
+Added detailed logging to show:
+- URL being called
+- Payload being sent
+- Payload keys
+- Payload field types
+- Full error response with details
+
+================================================================================
+EXPECTED BEHAVIOR AFTER FIX
+================================================================================
+
+1. Toggle Active Status:
+   - Click toggle switch
+   - All menu fields sent to backend
+   - Should receive 200 response
+   - Menu status updates in table
+
+2. Edit Menu:
+   - Click Edit button
+   - Modify fields
+   - Click Save
+   - All menu fields sent to backend
+   - Should receive 200 response
+   - Modal closes and table updates
+
+3. Error Logging:
+   - If 400 error still occurs, check browser console
+   - Error details will show:
+     * URL
+     * Payload
+     * Payload keys
+     * Payload field types
+     * Full error response
+
+================================================================================
+DEBUGGING IF ERROR PERSISTS
+================================================================================
+
+1. Open browser DevTools (F12)
+2. Go to Console tab
+3. Look for "Sending PUT request to update menu" log
+4. Check the payload structure
+5. Verify all fields are present
+6. Check field types match backend expectations
+7. Look for "Menu Config Update Error" log
+8. Check the error details and validation message
+
+Example console output:
+Sending PUT request to update menu: {
+  url: "/api/v1/menu-config/home",
+  payload: {
+    menuId: "home",
+    label: "Find Jobs",
+    path: "/jobs",
+    icon: "💼",
+    description: "Browse and search job listings",
+    badge: "PREMIUM",
+    isActive: true,
+    minTrustScore: 0,
+    allowedUserTypes: ["JOB_SEEKER"],
+    allowedWorkerTypes: ["FREELANCER", "BOTH"],
+    allowedSubscriptionTiers: ["FREE", "PREMIUM"],
+    order: 1,
+    parentMenuId: "recruitment"
+  },
+  payloadKeys: [...],
+  payloadTypes: {...}
+}
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Refresh the page
+2. Try toggling a menu's active status
+3. Check browser console for logs
+4. If successful:
+   - Try editing a menu
+   - Verify changes are saved
+   - Refresh page to verify persistence
+
+5. If 400 error persists:
+   - Check console for error details
+   - Verify all fields are being sent
+   - Check if backend expects different field names
+   - Contact backend team with error details
+
+================================================================================
+NOTES
+================================================================================
+
+The backend validation requires:
+- All fields to be present in the request
+- Correct field types (string, number, array, boolean)
+- Valid field values
+- Proper array format for allowedUserTypes, allowedWorkerTypes, allowedSubscriptionTiers
+
+The frontend now sends:
+- All menu fields from the current state
+- Proper field types
+- Empty arrays for optional fields if not set
+- Default values for numeric fields
+
+This ensures the backend validation passes and the update succeeds.
+
+================================================================================
