@@ -6,6 +6,8 @@ on:
       - 'feature/**'
       - 'bugfix/**'
       - 'hotfix/**'
+      - 'main'
+      - 'develop'
     paths-ignore:
       - '**.md'
       - 'docs/**'
