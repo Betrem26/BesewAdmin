@@ -458,21 +458,10 @@ const SubscriptionManagement: React.FC = () => {
     setPlans(prev => prev.map(p => p._id === plan._id ? { ...p, [field]: value } : p));
 
     try {
-      // Fetch full plan to get all required fields for the PUT payload
-      const fullPlan = await loadPlanById(plan._id);
-
-      // Use current Sets as source of truth for the flags
-      const currentIsPopular     = field === 'isPopular'     ? value : popularIds.has(plan._id);
-      const currentIsRecommended = field === 'isRecommended' ? value : recommendedIds.has(plan._id);
-
-      // Pass ALL fields from the full plan back, only overriding the flag being changed.
-      // Spread the entire fullPlan so no backend-required field is dropped,
-      // then strip MongoDB-internal fields and override the two flags.
-      const { _id: _planId, createdAt, updatedAt, updated_at, __v, ...planRest } = fullPlan as any;
+      // Send minimal payload with only the flag being updated
+      // This avoids validation issues with the backend
       const payload: Record<string, any> = {
-        ...planRest,
-        isPopular:     currentIsPopular,
-        isRecommended: currentIsRecommended,
+        [field]: value,
       };
 
       console.log('📤 Flag update payload:', JSON.stringify(payload, null, 2));

@@ -31,6 +31,10 @@ import JobTest from './pages/dashboard/JobTest';
 import JobTemplates from './pages/dashboard/JobTemplates';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { setupMenuDebugger } from './utils/menuDebugger';
+
+// Initialize debuggers
+setupMenuDebugger();
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = useSelector((state: RootState) => state.user.accessToken);

@@ -1,8 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchAllMenuConfigs, updateMenuConfig, deleteMenuConfig, seedDefaultMenus, clearError, clearSuccess } from '../../store/features/menuConfigSlice';
+import { fetchAllMenuConfigs, createMenuConfig, updateMenuConfig, deleteMenuConfig, seedDefaultMenus, clearError, clearSuccess } from '../../store/features/menuConfigSlice';
 import { RootState } from '../../store/store';
+
+// Helper function to prepare menu config data for API submission
+// Handles empty strings, null values, lowercase enum transformation, and includes menuId
+const prepareMenuData = (data: any): any => {
+  // Helper to convert to lowercase
+  const toLowerCase = (value: string): string => String(value).toLowerCase();
+  
+  // Helper to handle empty strings - convert to null
+  const emptyToNull = (value: any): any => {
+    if (value === '' || value === undefined) return null;
+    return value;
+  };
+
+  return {
+    menuId: String(data.menuId || '').trim(), // Include menuId in payload
+    label: String(data.label || '').trim(),
+    path: String(data.path || '').trim(),
+    icon: emptyToNull(data.icon ? String(data.icon).trim() : ''),
+    description: emptyToNull(data.description ? String(data.description).trim() : ''),
+    badge: emptyToNull(data.badge ? String(data.badge).trim() : ''),
+    isActive: data.isActive === true,
+    minTrustScore: parseInt(data.minTrustScore) || 0,
+    // Transform arrays to lowercase
+    allowedUserTypes: Array.isArray(data.allowedUserTypes) 
+      ? data.allowedUserTypes.map((t: any) => toLowerCase(t)).filter((t: string) => t)
+      : [],
+    allowedWorkerTypes: Array.isArray(data.allowedWorkerTypes)
+      ? data.allowedWorkerTypes.map((t: any) => toLowerCase(t)).filter((t: string) => t)
+      : [],
+    allowedSubscriptionTiers: Array.isArray(data.allowedSubscriptionTiers)
+      ? data.allowedSubscriptionTiers.map((t: any) => toLowerCase(t)).filter((t: string) => t)
+      : [],
+    order: parseInt(data.order) || 0,
+    parentMenuId: emptyToNull(data.parentMenuId ? String(data.parentMenuId).trim() : '')
+  };
+};
 
 const UserTypeCategory = {
   JOB_SEEKER: 'JOB_SEEKER',
@@ -284,25 +320,26 @@ export const MenuManagement: React.FC = () => {
     if (editData) {
       setIsSaving(true);
       try {
-        // Send only the fields that the PUT endpoint accepts (NOT menuId)
-        const updateData = {
-          label: editData.label,
-          path: editData.path,
-          icon: editData.icon,
-          description: editData.description,
-          badge: editData.badge,
-          isActive: editData.isActive,
-          minTrustScore: editData.minTrustScore || 0,
-          allowedUserTypes: editData.allowedUserTypes || [],
-          allowedWorkerTypes: editData.allowedWorkerTypes || [],
-          allowedSubscriptionTiers: editData.allowedSubscriptionTiers || [],
-          order: editData.order,
-          parentMenuId: editData.parentMenuId
-        };
-        console.log('Saving menu config:', { menuId: editData.menuId, updateData });
-        dispatch(updateMenuConfig({ menuId: editData.menuId, data: updateData }) as any);
+        // Prepare data for API submission
+        const updateData = prepareMenuData(editData);
+        
+        console.log('Saving menu config:', { 
+          menuId: editData.menuId, 
+          updateData,
+          isCreate: !editData._id
+        });
+        
+        // If creating new menu, use create action, otherwise use update
+        if (editData._id) {
+          dispatch(updateMenuConfig({ menuId: editData.menuId, data: updateData }) as any);
+        } else {
+          dispatch(createMenuConfig({ menuId: editData.menuId, ...updateData }) as any);
+        }
+        
         setShowModal(false);
         setEditData({});
+      } catch (err) {
+        console.error('Error preparing menu data:', err);
       } finally {
         setIsSaving(false);
       }
@@ -312,26 +349,25 @@ export const MenuManagement: React.FC = () => {
   const handleToggleActive = (item: any) => {
     setIsSaving(true);
     try {
-      // Send only the fields that the PUT endpoint accepts (NOT menuId)
-      const updateData = {
-        label: item.label,
-        path: item.path,
-        icon: item.icon,
-        description: item.description,
-        badge: item.badge,
-        isActive: !item.isActive,
-        minTrustScore: item.minTrustScore || 0,
-        allowedUserTypes: item.allowedUserTypes || [],
-        allowedWorkerTypes: item.allowedWorkerTypes || [],
-        allowedSubscriptionTiers: item.allowedSubscriptionTiers || [],
-        order: item.order,
-        parentMenuId: item.parentMenuId
-      };
-      console.log('Toggling menu active status:', { menuId: item.menuId, updateData });
+      // Prepare data with toggled isActive status
+      const updateData = prepareMenuData({
+        ...item,
+        isActive: !item.isActive
+      });
+
+      console.log('Toggling menu active status:', { 
+        menuId: item.menuId, 
+        previousStatus: item.isActive,
+        newStatus: !item.isActive,
+        updateData 
+      });
+      
       dispatch(updateMenuConfig({ 
         menuId: item.menuId, 
         data: updateData
       }) as any);
+    } catch (err) {
+      console.error('Error toggling menu status:', err);
     } finally {
       setIsSaving(false);
     }
@@ -398,15 +434,27 @@ export const MenuManagement: React.FC = () => {
     <Container>
       <Header>
         <Title>Menu Management</Title>
-        <Button onClick={handleSeedDefaults} disabled={loading}>
-          Seed Default Menus
-        </Button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button onClick={() => { setEditData({}); setShowModal(true); }} disabled={loading}>
+            Create New Menu
+          </Button>
+          <Button onClick={handleSeedDefaults} disabled={loading}>
+            Seed Default Menus
+          </Button>
+        </div>
       </Header>
 
       {error && (
         <Alert $type="error">
-          <span>{typeof error === 'string' ? error : (error as any)?.message || 'An error occurred'}</span>
-          <button onClick={() => dispatch(clearError())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit' }}>Dismiss</button>
+          <div style={{ flex: 1 }}>
+            <strong>Error:</strong> {typeof error === 'string' ? error : (error as any)?.message || 'An error occurred'}
+            {(error as any)?.validationErrors && (
+              <div style={{ marginTop: '8px', fontSize: '12px', opacity: 0.9 }}>
+                <strong>Details:</strong> {JSON.stringify((error as any).validationErrors)}
+              </div>
+            )}
+          </div>
+          <button onClick={() => dispatch(clearError())} style={{ background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', color: 'inherit', whiteSpace: 'nowrap', marginLeft: '16px' }}>Dismiss</button>
         </Alert>
       )}
 
@@ -489,15 +537,21 @@ export const MenuManagement: React.FC = () => {
         </Table>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit/Create Modal */}
       {showModal && (
         <ModalOverlay onClick={() => !isSaving && setShowModal(false)}>
           <Modal onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>Edit Menu: {editData.label}</ModalHeader>
+            <ModalHeader>{editData.menuId ? 'Edit Menu: ' + editData.label : 'Create New Menu'}</ModalHeader>
 
             <FormGroup>
               <Label>Menu ID</Label>
-              <Input type="text" value={editData.menuId} disabled />
+              <Input 
+                type="text" 
+                value={editData.menuId || ''} 
+                onChange={(e) => setEditData({ ...editData, menuId: e.target.value })}
+                disabled={!!editData._id}
+                placeholder="e.g., my-menu"
+              />
             </FormGroup>
 
             <FormGroup>

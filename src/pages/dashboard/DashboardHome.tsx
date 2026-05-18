@@ -75,9 +75,9 @@ const PieChart: React.FC<{ data: { label: string; value: number; color: string }
   return (
     <PieWrap>
       <svg width="160" height="160" viewBox="0 0 160 160">
-        {slices.map((s, i) => (
+        {slices.map((s) => (
           <path
-            key={i}
+            key={s.label}
             d={describeArc(80, 80, 70, s.start, s.start + s.pct)}
             fill={s.color}
             stroke="white"
@@ -88,8 +88,8 @@ const PieChart: React.FC<{ data: { label: string; value: number; color: string }
         <text x="80" y="84" textAnchor="middle" fontSize="13" fontWeight="600" fill="#2c3e50">{total}</text>
       </svg>
       <PieLegend>
-        {data.map((d, i) => (
-          <LegendItem key={i}>
+        {data.map((d) => (
+          <LegendItem key={d.label}>
             <LegendDot style={{ background: d.color }} />
             <span>{d.label}</span>
             <LegendVal>{d.value} ({total > 0 ? Math.round(d.value / total * 100) : 0}%)</LegendVal>

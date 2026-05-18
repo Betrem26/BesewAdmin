@@ -18,27 +18,22 @@ export const menuConfigApi = {
 
   updateMenuConfig: async (menuId: string, data: any) => {
     try {
-      console.log('Sending PUT request to update menu:', {
-        url: `/api/v1/menu-config/${menuId}`,
-        payload: data,
-        payloadKeys: Object.keys(data),
-        payloadTypes: Object.entries(data).reduce((acc, [key, val]) => {
-          acc[key] = typeof val;
-          return acc;
-        }, {} as Record<string, string>)
-      });
-      const response = await accountApi.put(`/api/v1/menu-config/${menuId}`, data);
+      const payload = data;
+      console.log('=== MENU UPDATE REQUEST ===');
+      console.log('MenuID:', menuId);
+      console.log('Payload:', JSON.stringify(payload, null, 2));
+      console.log('Payload Keys:', Object.keys(payload));
+      console.log('========================');
+      
+      const response = await accountApi.put(`/api/v1/menu-config/${menuId}`, payload);
+      console.log('Menu Config Update Success:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Menu Config Update Error:', {
-        menuId,
-        data,
-        status: error.response?.status,
-        message: error.response?.data?.message,
-        details: error.response?.data?.details,
-        error: error.response?.data,
-        fullResponse: error.response
-      });
+      console.error('=== MENU UPDATE ERROR ===');
+      console.error('Status:', error.response?.status);
+      console.error('Message:', error.response?.data?.message);
+      console.error('Error Data:', error.response?.data);
+      console.error('========================');
       throw error;
     }
   },
