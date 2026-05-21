@@ -1,0 +1,1 @@
+export { useAccessibleMenus } from './useAccessibleMenus';

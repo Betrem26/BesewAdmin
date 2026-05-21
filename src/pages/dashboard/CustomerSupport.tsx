@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { FiEye, FiTrash2, FiRefreshCw, FiMessageSquare } from 'react-icons/fi';
 import { customerSupportApi, SupportTicket, TicketCategory } from '../../services/customerSupportApi';
 import { toast } from 'react-toastify';
+import { SmartConfirmDialog } from '../../components/SmartConfirmDialog';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   open:        { bg: '#e3f2fd', color: '#1976d2' },
@@ -23,6 +24,12 @@ const CustomerSupport: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [newStatus, setNewStatus] = useState<SupportTicket['status']>('open');
   const [adminNotes, setAdminNotes] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; ticketId: string; subject: string; isDeleting: boolean }>({
+    isOpen: false,
+    ticketId: '',
+    subject: '',
+    isDeleting: false,
+  });
 
   useEffect(() => {
     loadTickets();
@@ -93,22 +100,32 @@ const CustomerSupport: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this ticket? This cannot be undone.')) return;
+  const handleDelete = async (id: string, subject: string) => {
+    setDeleteDialog({ isOpen: true, ticketId: id, subject, isDeleting: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
     try {
-      await customerSupportApi.deleteTicket(id);
-      setTickets(prev => prev.filter(t => t._id !== id));
-      if (selectedTicket?._id === id) setShowModal(false);
+      await customerSupportApi.deleteTicket(deleteDialog.ticketId);
+      setTickets(prev => prev.filter(t => t._id !== deleteDialog.ticketId));
+      if (selectedTicket?._id === deleteDialog.ticketId) setShowModal(false);
       toast.success('Ticket deleted');
+      setDeleteDialog({ isOpen: false, ticketId: '', subject: '', isDeleting: false });
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete ticket');
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, ticketId: '', subject: '', isDeleting: false });
   };
 
   const filtered = tickets.filter(t => {
     const matchSearch =
-      t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.message || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.partyId || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchStatus = statusFilter === 'all' || t.status === statusFilter;
     const matchCat = categoryFilter === 'all' || t.category === categoryFilter;
@@ -188,8 +205,8 @@ const CustomerSupport: React.FC = () => {
               {filtered.map(ticket => (
                 <Tr key={ticket._id}>
                   <Td>
-                    <SubjectText>{ticket.subject}</SubjectText>
-                    <MessagePreview>{ticket.message.slice(0, 60)}{ticket.message.length > 60 ? '...' : ''}</MessagePreview>
+                    <SubjectText>{ticket.subject || 'N/A'}</SubjectText>
+                    <MessagePreview>{(ticket.message || '').slice(0, 60)}{(ticket.message || '').length > 60 ? '...' : ''}</MessagePreview>
                   </Td>
                   <Td>
                     <CategoryLabel>{getCategoryLabel(ticket.category)}</CategoryLabel>
@@ -209,7 +226,7 @@ const CustomerSupport: React.FC = () => {
                       <ActionBtn title="View & Update" onClick={() => openModal(ticket)}>
                         <FiEye />
                       </ActionBtn>
-                      <ActionBtn $danger title="Delete" onClick={() => handleDelete(ticket._id)}>
+                      <ActionBtn $danger title="Delete" onClick={() => handleDelete(ticket._id, ticket.subject)}>
                         <FiTrash2 />
                       </ActionBtn>
                     </ActionButtons>
@@ -295,6 +312,17 @@ const CustomerSupport: React.FC = () => {
           )}
         </ModalBox>
       </Overlay>
+
+      <SmartConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Support Ticket"
+        message="This will permanently delete the ticket and all associated messages. This action cannot be reversed."
+        itemName={deleteDialog.subject}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isLoading={deleteDialog.isDeleting}
+        confirmText="Delete Ticket"
+      />
     </Container>
   );
 };

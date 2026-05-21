@@ -1,7 +1,7 @@
 //////
 import type React from "react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Paper,
   Table,
@@ -122,8 +122,9 @@ function Users() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [roleFilter, setRoleFilter] = useState("all");
   const [verificationFilter, setVerificationFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<string>("newest");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openSidebar, setOpenSidebar] = useState(true);
@@ -305,9 +306,9 @@ function Users() {
     }
 
     // Role filter
-    if (roleFilter !== "all") {
+    if (selectedRole !== "all") {
       filtered = filtered.filter(
-        (user) => user.role.toLowerCase() === roleFilter
+        (user) => user.role?.toLowerCase() === selectedRole.toLowerCase()
       );
     }
 
@@ -322,7 +323,37 @@ function Users() {
 
     setFilteredUsers(filtered);
     setPage(0);
-  }, [searchTerm, statusFilter, roleFilter, verificationFilter, users]);
+  }, [searchTerm, statusFilter, selectedRole, verificationFilter, users]);
+
+  // Compute the processed list (Filtering first, then Sorting)
+  const processedUsers = useMemo(() => {
+    if (!filteredUsers) return [];
+
+    // Apply the 4 Professional Sorting Rules
+    return [...filteredUsers].sort((a, b) => {
+      if (sortBy === "newest") {
+        const dateA = new Date(a.created_at || "0").getTime();
+        const dateB = new Date(b.created_at || "0").getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === "oldest") {
+        const dateA = new Date(a.created_at || "0").getTime();
+        const dateB = new Date(b.created_at || "0").getTime();
+        return dateA - dateB;
+      }
+      if (sortBy === "alpha-asc") {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === "alpha-desc") {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return nameB.localeCompare(nameA);
+      }
+      return 0;
+    });
+  }, [filteredUsers, sortBy]);
 
   // Validate form data
   const validateForm = (): boolean => {
@@ -828,7 +859,7 @@ function Users() {
           {/* Filters */}
           <Paper className="p-4 mb-4">
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={5}>
                 <TextField
                   fullWidth
                   placeholder="Search by name, party ID, email, or phone"
@@ -863,23 +894,37 @@ function Users() {
 
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
-                  <InputLabel>Role</InputLabel>
+                  <InputLabel>Filter by Role</InputLabel>
                   <Select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    label="Role"
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value)}
+                    label="Filter by Role"
                   >
                     <MenuItem value="all">All Roles</MenuItem>
-                    {availableRoles.map((role) => (
-                      <MenuItem key={role._id} value={role.name}>
-                        {role.displayName}
-                      </MenuItem>
-                    ))}
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="employer">Employer</MenuItem>
+                    <MenuItem value="job_seeker">Job Seeker</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} md={2}>
+              <Grid item xs={12} md={1.5}>
+                <FormControl fullWidth>
+                  <InputLabel>Sort By</InputLabel>
+                  <Select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    label="Sort By"
+                  >
+                    <MenuItem value="newest">Lastly Registered</MenuItem>
+                    <MenuItem value="oldest">Oldest Registered</MenuItem>
+                    <MenuItem value="alpha-asc">Name: A to Z</MenuItem>
+                    <MenuItem value="alpha-desc">Name: Z to A</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={1.5}>
                 <FormControl fullWidth>
                   <InputLabel>Verification</InputLabel>
                   <Select
@@ -913,7 +958,7 @@ function Users() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredUsers
+                  {processedUsers
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((user) => (
                       <TableRow key={user._id} hover>
@@ -1000,7 +1045,7 @@ function Users() {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"
-              count={filteredUsers.length}
+              count={processedUsers.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}

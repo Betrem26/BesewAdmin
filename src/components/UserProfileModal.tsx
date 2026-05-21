@@ -19,6 +19,7 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'education' | 'experience'>('overview');
   const [docViewer, setDocViewer] = useState<{ url: string; name: string } | null>(null);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -47,6 +48,7 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
     if (!path) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     if (path.startsWith('/')) return `${PARTY_BASE}${path}`;
+    // For relative photo paths, use the company-data/file endpoint
     return `${PARTY_BASE}/company-data/file/${path}`;
   };
 
@@ -66,6 +68,18 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
   const photoUrl = buildUrl(profile?.photo);
   const resumeUrl = buildUrl(profile?.resume_file_upload);
 
+  // Debug logging
+  useEffect(() => {
+    if (profile) {
+      console.log('[UserProfileModal Debug]', {
+        partyId: account.party_id,
+        profilePhotoField: profile.photo,
+        builtPhotoUrl: photoUrl,
+        profileLoaded: true
+      });
+    }
+  }, [profile, photoUrl, account.party_id]);
+
   const exp = profile?.experience?.length ? profile.experience : profile?.experiance || [];
   const edu = profile?.education || [];
   const isVerified = profile?.verfied || profile?.auth_verfied || account.is_verified || account.verified;
@@ -80,8 +94,16 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
           <HeaderLeft>
             {loading ? (
               <AvatarSkeleton />
-            ) : photoUrl ? (
-              <ModalAvatar src={photoUrl} alt={account.profile_name} />
+            ) : (photoUrl && !avatarLoadError) ? (
+              <ModalAvatar 
+                src={photoUrl} 
+                alt={account.profile_name}
+                onError={() => {
+                  console.log('[UserProfileModal] Image load failed for:', photoUrl);
+                  setAvatarLoadError(true);
+                }}
+                crossOrigin="anonymous"
+              />
             ) : (
               <AvatarFallback>{account.profile_name.charAt(0).toUpperCase()}</AvatarFallback>
             )}
@@ -154,13 +176,11 @@ const UserProfileModal: React.FC<Props> = ({ account, onClose }) => {
                 <InfoRow><InfoLabel>Party ID</InfoLabel><InfoVal><Mono>{account.party_id}</Mono></InfoVal></InfoRow>
                 <InfoRow><InfoLabel>Name</InfoLabel><InfoVal>{account.profile_name}</InfoVal></InfoRow>
                 {account.email && <InfoRow><InfoLabel>Email</InfoLabel><InfoVal>{account.email}</InfoVal></InfoRow>}
+                {(account.phone || account.phonenumber) && <InfoRow><InfoLabel>Phone</InfoLabel><InfoVal>{account.phone || account.phonenumber}</InfoVal></InfoRow>}
                 <InfoRow><InfoLabel>Role</InfoLabel><InfoVal style={{textTransform:'capitalize'}}>{account.role}</InfoVal></InfoRow>
                 <InfoRow><InfoLabel>Status</InfoLabel><InfoVal style={{textTransform:'capitalize'}}>{account.status.replace('_',' ')}</InfoVal></InfoRow>
                 <InfoRow><InfoLabel>Party Type</InfoLabel><InfoVal>{account.party_type?.name || '—'}</InfoVal></InfoRow>
                 <InfoRow><InfoLabel>Joined</InfoLabel><InfoVal>{new Date(account.date).toLocaleString()}</InfoVal></InfoRow>
-                {(account.phone || account.phonenumber) && (
-                  <InfoRow><InfoLabel>Phone</InfoLabel><InfoVal>{account.phone || account.phonenumber}</InfoVal></InfoRow>
-                )}
               </InfoCard>
 
               {/* Party profile data — shown only if loaded successfully */}
@@ -351,17 +371,18 @@ const ModalHeader = styled.div`
 const HeaderLeft = styled.div`display: flex; gap: 16px; align-items: flex-start; flex: 1; min-width: 0;`;
 const HeaderRight = styled.div`display: flex; gap: 8px; align-items: center; flex-shrink: 0;`;
 const ModalAvatar = styled.img`
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 80px; height: 80px; border-radius: 50%;
   object-fit: cover; border: 3px solid #e2e8f0; flex-shrink: 0;
+  background: #f7fafc;
 `;
 const AvatarFallback = styled.div`
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 80px; height: 80px; border-radius: 50%;
   background: linear-gradient(135deg, #4299e1, #667eea);
-  color: white; font-size: 24px; font-weight: 700;
+  color: white; font-size: 32px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 `;
 const AvatarSkeleton = styled.div`
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 80px; height: 80px; border-radius: 50%;
   background: linear-gradient(90deg, #f0f4f8 25%, #e2e8f0 50%, #f0f4f8 75%);
   background-size: 200% 100%;
   flex-shrink: 0;

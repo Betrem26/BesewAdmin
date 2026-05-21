@@ -196,6 +196,74 @@ const FileLabel = styled.label`
 `;
 const ModalActions = styled.div`display:flex;gap:10px;margin-top:24px;`;
 
+// ── Confirmation Dialog ────────────────────────────────────────────────────
+const ConfirmOverlay = styled.div<{ $open: boolean }>`
+  display:${p => p.$open ? "flex" : "none"};
+  position:fixed;inset:0;background:rgba(0,0,0,0.5);
+  z-index:1100;align-items:center;justify-content:center;padding:20px;
+  animation:${p => p.$open ? css`${fadeIn} 0.2s ease` : "none"};
+`;
+
+const ConfirmModal = styled.div`
+  background:white;border-radius:16px;padding:32px;
+  width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  animation:${fadeIn} 0.3s ease;
+`;
+
+const ConfirmHeader = styled.div`
+  display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;
+`;
+
+const ConfirmIconBox = styled.div`
+  width:48px;height:48px;border-radius:12px;
+  background:#fee2e2;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+`;
+
+const ConfirmContent = styled.div`flex:1;`;
+
+const ConfirmTitle = styled.h3`
+  font-size:18px;font-weight:700;color:#1e293b;margin:0 0 8px;
+`;
+
+const ConfirmMessage = styled.p`
+  font-size:14px;color:#64748b;margin:0 0 12px;line-height:1.5;
+`;
+
+const ConfirmItemName = styled.div`
+  background:#f1f5f9;border-left:3px solid #ef4444;
+  padding:10px 12px;border-radius:6px;font-size:13px;
+  font-weight:600;color:#1e293b;margin-bottom:16px;
+  word-break:break-word;
+`;
+
+const ConfirmWarning = styled.div`
+  background:#fef9c3;border-left:3px solid #f59e0b;
+  padding:10px 12px;border-radius:6px;font-size:12px;
+  color:#92400e;margin-bottom:20px;display:flex;gap:8px;align-items:flex-start;
+`;
+
+const ConfirmActions = styled.div`
+  display:flex;gap:10px;
+  button{flex:1;}
+`;
+
+const ConfirmBtn = styled.button<{ $variant: "danger" | "secondary" }>`
+  padding:10px 16px;border:none;border-radius:8px;
+  font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s;
+  ${p => p.$variant === "danger" && css`
+    background:#ef4444;color:white;
+    &:hover{background:#dc2626;}
+    &:disabled{opacity:0.5;cursor:not-allowed;}
+  `}
+  ${p => p.$variant === "secondary" && css`
+    background:#f1f5f9;color:#475569;
+    &:hover{background:#e2e8f0;}
+    &:disabled{opacity:0.5;cursor:not-allowed;}
+  `}
+  display:flex;align-items:center;justify-content:center;gap:6px;
+`;
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 const COMPANY_TYPES = [
   { value: "company",      label: "Company" },
@@ -229,11 +297,29 @@ interface FormState {
   icon: File | null;
 }
 
+interface ConfirmDialogState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  itemName: string;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}
+
 const EMPTY_FORM: FormState = {
   categoryName: "",
   companyType: "local_agency",
   langOpt: "English",
   icon: null,
+};
+
+const EMPTY_CONFIRM: ConfirmDialogState = {
+  isOpen: false,
+  title: "",
+  message: "",
+  itemName: "",
+  onConfirm: () => {},
+  isDeleting: false,
 };
 
 const JobCategories: React.FC = () => {
@@ -248,6 +334,7 @@ const JobCategories: React.FC = () => {
   const [form, setForm]               = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting]   = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(EMPTY_CONFIRM);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load on mount and when filters change
@@ -329,12 +416,29 @@ const JobCategories: React.FC = () => {
   };
 
   const handleDelete = async (cat: JobCategory) => {
-    if (!window.confirm(`Delete "${cat.categoryName}"?`)) return;
-    try {
-      await dispatch(deleteCategory(cat._id)).unwrap();
-      toast.success("Category deleted");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to delete");
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Category",
+      message: "Are you sure you want to delete this job category? This action cannot be undone.",
+      itemName: cat.categoryName,
+      isDeleting: false,
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isDeleting: true }));
+        try {
+          await dispatch(deleteCategory(cat._id)).unwrap();
+          toast.success("Category deleted successfully");
+          setConfirmDialog(EMPTY_CONFIRM);
+        } catch (err: any) {
+          toast.error(err?.message || "Failed to delete category");
+          setConfirmDialog(EMPTY_CONFIRM);
+        }
+      },
+    });
+  };
+
+  const closeConfirmDialog = () => {
+    if (!confirmDialog.isDeleting) {
+      setConfirmDialog(EMPTY_CONFIRM);
     }
   };
 
@@ -533,6 +637,57 @@ const JobCategories: React.FC = () => {
           </form>
         </Modal>
       </Overlay>
+
+      {/* Confirmation Dialog */}
+      <ConfirmOverlay $open={confirmDialog.isOpen} onClick={e => { if (e.target === e.currentTarget) closeConfirmDialog(); }}>
+        <ConfirmModal>
+          <ConfirmHeader>
+            <ConfirmIconBox>
+              <FiAlertTriangle size={24} color="#dc2626" />
+            </ConfirmIconBox>
+            <ConfirmContent>
+              <ConfirmTitle>{confirmDialog.title}</ConfirmTitle>
+              <ConfirmMessage>{confirmDialog.message}</ConfirmMessage>
+            </ConfirmContent>
+          </ConfirmHeader>
+
+          {confirmDialog.itemName && (
+            <ConfirmItemName>
+              📁 {confirmDialog.itemName}
+            </ConfirmItemName>
+          )}
+
+          <ConfirmWarning>
+            <span style={{ marginTop: 2 }}>⚠️</span>
+            <span>This action is permanent and cannot be reversed.</span>
+          </ConfirmWarning>
+
+          <ConfirmActions>
+            <ConfirmBtn
+              $variant="secondary"
+              onClick={closeConfirmDialog}
+              disabled={confirmDialog.isDeleting}
+            >
+              <FiX size={14} /> Cancel
+            </ConfirmBtn>
+            <ConfirmBtn
+              $variant="danger"
+              onClick={confirmDialog.onConfirm}
+              disabled={confirmDialog.isDeleting}
+            >
+              {confirmDialog.isDeleting ? (
+                <>
+                  <SpinIcon size={14} $spin /> Deleting...
+                </>
+              ) : (
+                <>
+                  <FiTrash2 size={14} /> Delete
+                </>
+              )}
+            </ConfirmBtn>
+          </ConfirmActions>
+        </ConfirmModal>
+      </ConfirmOverlay>
     </Page>
   );
 };

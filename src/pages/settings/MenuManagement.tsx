@@ -3,49 +3,15 @@ import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAllMenuConfigs, createMenuConfig, updateMenuConfig, deleteMenuConfig, seedDefaultMenus, clearError, clearSuccess } from '../../store/features/menuConfigSlice';
 import { RootState } from '../../store/store';
-
-// Helper function to prepare menu config data for API submission
-// Handles empty strings, null values, lowercase enum transformation, and includes menuId
-const prepareMenuData = (data: any): any => {
-  // Helper to convert to lowercase
-  const toLowerCase = (value: string): string => String(value).toLowerCase();
-  
-  // Helper to handle empty strings - convert to null
-  const emptyToNull = (value: any): any => {
-    if (value === '' || value === undefined) return null;
-    return value;
-  };
-
-  return {
-    menuId: String(data.menuId || '').trim(), // Include menuId in payload
-    label: String(data.label || '').trim(),
-    path: String(data.path || '').trim(),
-    icon: emptyToNull(data.icon ? String(data.icon).trim() : ''),
-    description: emptyToNull(data.description ? String(data.description).trim() : ''),
-    badge: emptyToNull(data.badge ? String(data.badge).trim() : ''),
-    isActive: data.isActive === true,
-    minTrustScore: parseInt(data.minTrustScore) || 0,
-    // Transform arrays to lowercase
-    allowedUserTypes: Array.isArray(data.allowedUserTypes) 
-      ? data.allowedUserTypes.map((t: any) => toLowerCase(t)).filter((t: string) => t)
-      : [],
-    allowedWorkerTypes: Array.isArray(data.allowedWorkerTypes)
-      ? data.allowedWorkerTypes.map((t: any) => toLowerCase(t)).filter((t: string) => t)
-      : [],
-    allowedSubscriptionTiers: Array.isArray(data.allowedSubscriptionTiers)
-      ? data.allowedSubscriptionTiers.map((t: any) => toLowerCase(t)).filter((t: string) => t)
-      : [],
-    order: parseInt(data.order) || 0,
-    parentMenuId: emptyToNull(data.parentMenuId ? String(data.parentMenuId).trim() : '')
-  };
-};
+import { validateMenuData, prepareMenuData, formatEnumValue, sortMenuItems, getMenuLevel } from '../../utils/menuHelpers';
 
 const UserTypeCategory = {
   JOB_SEEKER: 'JOB_SEEKER',
   GIG_WORKER: 'GIG_WORKER',
   EMPLOYER: 'EMPLOYER',
   AGGREGATOR: 'AGGREGATOR',
-  STARTUP_FOUNDER: 'STARTUP_FOUNDER'
+  STARTUP_FOUNDER: 'STARTUP_FOUNDER',
+  ADMIN: 'ADMIN'
 };
 
 const WorkerType = {
@@ -57,13 +23,13 @@ const WorkerType = {
 };
 
 const SubscriptionTier = {
-  FREE: 'free',
-  TRIAL: 'trial',
-  STANDARD: 'standard',
-  GROWTH: 'growth',
-  PROFESSIONAL: 'professional',
-  PREMIUM: 'premium',
-  ENTERPRISE: 'enterprise'
+  FREE: 'FREE',
+  TRIAL: 'TRIAL',
+  STANDARD: 'STANDARD',
+  GROWTH: 'GROWTH',
+  PROFESSIONAL: 'PROFESSIONAL',
+  PREMIUM: 'PREMIUM',
+  ENTERPRISE: 'ENTERPRISE'
 };
 
 const Container = styled.div`
@@ -269,6 +235,39 @@ const Input = styled.input`
   }
 `;
 
+const TextArea = styled.textarea`
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
+const Select = styled.select`
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+`;
+
 const ModalFooter = styled.div`
   display: flex;
   gap: 8px;
@@ -284,87 +283,124 @@ export const MenuManagement: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
     dispatch(fetchAllMenuConfigs() as any);
   }, [dispatch]);
 
+  // Auto-clear success message after 3 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        dispatch(clearSuccess());
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, dispatch]);
+
+  // Auto-clear error message after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        dispatch(clearError());
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, dispatch]);
+
   // Build a map of menu items by ID for parent-child relationships
   const menuMap = new Map(items.map(item => [item.menuId, item]));
 
-  // Get the hierarchy level of a menu item
-  const getMenuLevel = (menuId: string, visited = new Set<string>()): number => {
-    if (visited.has(menuId)) return 0; // Prevent infinite loops
-    visited.add(menuId);
-    
-    const item = menuMap.get(menuId);
-    if (!item?.parentMenuId) return 0;
-    
-    return 1 + getMenuLevel(item.parentMenuId, visited);
-  };
-
   // Sort items to show parents before children
-  const sortedItems = [...items].sort((a, b) => {
-    const levelA = getMenuLevel(a.menuId);
-    const levelB = getMenuLevel(b.menuId);
-    if (levelA !== levelB) return levelA - levelB;
-    return (a.order || 0) - (b.order || 0);
-  });
+  const sortedItems = sortMenuItems(items);
 
   const handleEdit = (item: any) => {
     setShowModal(true);
     setEditData({ ...item });
+    setIsCreating(false);
+    setValidationErrors([]);
   };
 
-  const handleSave = () => {
-    if (editData) {
-      setIsSaving(true);
-      try {
-        // Prepare data for API submission
-        const updateData = prepareMenuData(editData);
-        
-        console.log('Saving menu config:', { 
-          menuId: editData.menuId, 
-          updateData,
-          isCreate: !editData._id
-        });
-        
-        // If creating new menu, use create action, otherwise use update
-        if (editData._id) {
-          dispatch(updateMenuConfig({ menuId: editData.menuId, data: updateData }) as any);
-        } else {
-          dispatch(createMenuConfig({ menuId: editData.menuId, ...updateData }) as any);
-        }
-        
-        setShowModal(false);
-        setEditData({});
-      } catch (err) {
-        console.error('Error preparing menu data:', err);
-      } finally {
-        setIsSaving(false);
+  const handleCreateNew = () => {
+    setEditData({});
+    setShowModal(true);
+    setIsCreating(true);
+    setValidationErrors([]);
+  };
+
+  const handleSave = async () => {
+    // Validate data
+    const errors = validateMenuData(editData, isCreating);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    setValidationErrors([]);
+    setIsSaving(true);
+    try {
+      // Prepare data for API submission (pass isUpdate flag)
+      const updateData = prepareMenuData(editData, !isCreating);
+      
+      console.log('Saving menu config:', { 
+        menuId: editData.menuId, 
+        updateData,
+        isCreating
+      });
+      
+      // If creating new menu, use create action, otherwise use update
+      if (isCreating) {
+        await dispatch(createMenuConfig(updateData) as any);
+      } else {
+        await dispatch(updateMenuConfig({ menuId: editData.menuId, data: updateData }) as any);
       }
+      
+      setShowModal(false);
+      setEditData({});
+    } catch (err) {
+      console.error('Error preparing menu data:', err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleToggleActive = (item: any) => {
+  const handleToggleActive = async (item: any) => {
     setIsSaving(true);
     try {
-      // Prepare data with toggled isActive status
-      const updateData = prepareMenuData({
-        ...item,
-        isActive: !item.isActive
-      });
+      const newStatus = !item.isActive;
+      
+      // Build the formatted payload - only include fields that have values (no nulls)
+      const formattedPayload: any = {
+        label: item.label,
+        path: item.path,
+        isActive: newStatus,
+        minTrustScore: item.minTrustScore || 0,
+        order: item.order || 0,
+        // Force UPPERCASE for all enum arrays
+        allowedSubscriptionTiers: (item.allowedSubscriptionTiers || []).map((t: string) => String(t).toUpperCase()),
+        allowedUserTypes: (item.allowedUserTypes || []).map((u: string) => String(u).toUpperCase()),
+        allowedWorkerTypes: (item.allowedWorkerTypes || []).map((w: string) => String(w).toUpperCase())
+      };
+
+      // Only add optional fields if they have values (don't send null)
+      if (item.icon) formattedPayload.icon = item.icon;
+      if (item.description) formattedPayload.description = item.description;
+      if (item.badge) formattedPayload.badge = String(item.badge).toUpperCase();
+      if (item.parentMenuId) formattedPayload.parentMenuId = item.parentMenuId;
 
       console.log('Toggling menu active status:', { 
         menuId: item.menuId, 
         previousStatus: item.isActive,
-        newStatus: !item.isActive,
-        updateData 
+        newStatus: newStatus,
+        formattedPayload 
       });
       
-      dispatch(updateMenuConfig({ 
+      // Await the dispatch to wait for the API response
+      await dispatch(updateMenuConfig({ 
         menuId: item.menuId, 
-        data: updateData
+        data: formattedPayload
       }) as any);
     } catch (err) {
       console.error('Error toggling menu status:', err);
@@ -435,7 +471,7 @@ export const MenuManagement: React.FC = () => {
       <Header>
         <Title>Menu Management</Title>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button onClick={() => { setEditData({}); setShowModal(true); }} disabled={loading}>
+          <Button onClick={handleCreateNew} disabled={loading}>
             Create New Menu
           </Button>
           <Button onClick={handleSeedDefaults} disabled={loading}>
@@ -485,7 +521,7 @@ export const MenuManagement: React.FC = () => {
           </thead>
           <tbody>
             {sortedItems.map((item) => {
-              const level = getMenuLevel(item.menuId);
+              const level = getMenuLevel(item.menuId, menuMap);
               const isChild = level > 0;
               
               return (
@@ -510,7 +546,7 @@ export const MenuManagement: React.FC = () => {
                   <Td>
                     <div style={{ fontSize: '12px' }}>
                       {(item.allowedUserTypes || []).length > 0 
-                        ? (item.allowedUserTypes || []).join(', ') 
+                        ? (item.allowedUserTypes || []).map((t: string) => formatEnumValue(t)).join(', ') 
                         : <span style={{ color: '#9ca3af' }}>All</span>
                       }
                     </div>
@@ -518,7 +554,7 @@ export const MenuManagement: React.FC = () => {
                   <Td>
                     <div style={{ fontSize: '12px' }}>
                       {(item.allowedWorkerTypes || []).length > 0 
-                        ? (item.allowedWorkerTypes || []).join(', ') 
+                        ? (item.allowedWorkerTypes || []).map((t: string) => formatEnumValue(t)).join(', ') 
                         : <span style={{ color: '#9ca3af' }}>All</span>
                       }
                     </div>
@@ -543,19 +579,32 @@ export const MenuManagement: React.FC = () => {
           <Modal onClick={(e) => e.stopPropagation()}>
             <ModalHeader>{editData.menuId ? 'Edit Menu: ' + editData.label : 'Create New Menu'}</ModalHeader>
 
+            {validationErrors.length > 0 && (
+              <Alert $type="error" style={{ marginBottom: '16px' }}>
+                <div>
+                  <strong>Validation Errors:</strong>
+                  <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                    {validationErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              </Alert>
+            )}
+
             <FormGroup>
-              <Label>Menu ID</Label>
+              <Label>Menu ID {isCreating && <span style={{ color: '#ef4444' }}>*</span>}</Label>
               <Input 
                 type="text" 
                 value={editData.menuId || ''} 
                 onChange={(e) => setEditData({ ...editData, menuId: e.target.value })}
-                disabled={!!editData._id}
+                disabled={!isCreating}
                 placeholder="e.g., my-menu"
               />
             </FormGroup>
 
             <FormGroup>
-              <Label>Label</Label>
+              <Label>Label <span style={{ color: '#ef4444' }}>*</span></Label>
               <Input 
                 type="text" 
                 value={editData.label || ''} 
@@ -564,11 +613,67 @@ export const MenuManagement: React.FC = () => {
             </FormGroup>
 
             <FormGroup>
-              <Label>Path</Label>
+              <Label>Path <span style={{ color: '#ef4444' }}>*</span></Label>
               <Input 
                 type="text" 
                 value={editData.path || ''} 
                 onChange={(e) => setEditData({ ...editData, path: e.target.value })}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Icon</Label>
+              <Input 
+                type="text" 
+                value={editData.icon || ''} 
+                onChange={(e) => setEditData({ ...editData, icon: e.target.value })}
+                placeholder="e.g., 💼"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Description</Label>
+              <TextArea 
+                value={editData.description || ''} 
+                onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                placeholder="Brief description of this menu"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Badge</Label>
+              <Input 
+                type="text" 
+                value={editData.badge || ''} 
+                onChange={(e) => setEditData({ ...editData, badge: e.target.value })}
+                placeholder="e.g., PREMIUM, NEW"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Parent Menu ID</Label>
+              <Select 
+                value={editData.parentMenuId || ''} 
+                onChange={(e) => setEditData({ ...editData, parentMenuId: e.target.value || null })}
+              >
+                <option value="">None (Top-level menu)</option>
+                {items
+                  .filter(item => item.menuId !== editData.menuId) // Don't allow self-reference
+                  .map(item => (
+                    <option key={item.menuId} value={item.menuId}>
+                      {item.label} ({item.menuId})
+                    </option>
+                  ))
+                }
+              </Select>
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Order</Label>
+              <Input 
+                type="number" 
+                value={editData.order || 0} 
+                onChange={(e) => setEditData({ ...editData, order: parseInt(e.target.value) })}
               />
             </FormGroup>
 
@@ -591,7 +696,7 @@ export const MenuManagement: React.FC = () => {
                       checked={(editData.allowedUserTypes || []).includes(type)}
                       onChange={() => toggleUserType(type)}
                     />
-                    {type}
+                    {formatEnumValue(type)}
                   </CheckboxLabel>
                 ))}
               </CheckboxGroup>
@@ -607,7 +712,7 @@ export const MenuManagement: React.FC = () => {
                       checked={(editData.allowedWorkerTypes || []).includes(type)}
                       onChange={() => toggleWorkerType(type)}
                     />
-                    {type}
+                    {formatEnumValue(type)}
                   </CheckboxLabel>
                 ))}
               </CheckboxGroup>
@@ -623,10 +728,21 @@ export const MenuManagement: React.FC = () => {
                       checked={(editData.allowedSubscriptionTiers || []).includes(tier)}
                       onChange={() => toggleSubscriptionTier(tier)}
                     />
-                    {tier}
+                    {formatEnumValue(tier)}
                   </CheckboxLabel>
                 ))}
               </CheckboxGroup>
+            </FormGroup>
+
+            <FormGroup>
+              <CheckboxLabel>
+                <input
+                  type="checkbox"
+                  checked={editData.isActive !== false}
+                  onChange={(e) => setEditData({ ...editData, isActive: e.target.checked })}
+                />
+                <strong>Active</strong>
+              </CheckboxLabel>
             </FormGroup>
 
             <ModalFooter>

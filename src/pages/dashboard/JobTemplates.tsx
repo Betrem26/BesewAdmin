@@ -7,6 +7,7 @@ import {
 } from "react-icons/fi";
 import { jobApi, handleApiError } from "../../services/api";
 import { toast } from "react-toastify";
+import { SmartConfirmDialog } from "../../components/SmartConfirmDialog";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -254,6 +255,12 @@ const JobTemplates: React.FC = () => {
   const [editTarget,   setEditTarget]   = useState<JobTemplate | null>(null);
   const [form,         setForm]         = useState<EditForm>(EMPTY_FORM);
   const [saving,       setSaving]       = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; templateId: string; title: string; isDeleting: boolean }>({
+    isOpen: false,
+    templateId: '',
+    title: '',
+    isDeleting: false,
+  });
 
   // ── Fetch templates ────────────────────────────────────────────────────
   const fetchTemplates = useCallback(async () => {
@@ -417,13 +424,18 @@ const JobTemplates: React.FC = () => {
 
   // ── Delete ─────────────────────────────────────────────────────────────
   const handleDelete = async (t: JobTemplate) => {
-    if (!window.confirm(`Delete template "${t.title}"?`)) return;
+    setDeleteDialog({ isOpen: true, templateId: t._id, title: t.title, isDeleting: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
     try {
-      await jobApi.delete(`/job-common/${t._id}`, {
+      await jobApi.delete(`/job-common/${deleteDialog.templateId}`, {
         headers: ADMIN_HEADERS,
       });
       toast.success("Template deleted");
-      setTemplates(prev => prev.filter(x => x._id !== t._id));
+      setTemplates(prev => prev.filter(x => x._id !== deleteDialog.templateId));
+      setDeleteDialog({ isOpen: false, templateId: '', title: '', isDeleting: false });
     } catch (err: any) {
       const code = err?.response?.status;
       if (code === 403) {
@@ -431,7 +443,12 @@ const JobTemplates: React.FC = () => {
       } else {
         toast.error(handleApiError(err));
       }
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, templateId: '', title: '', isDeleting: false });
   };
 
   const filtered = templates.filter(t =>
@@ -737,6 +754,17 @@ const JobTemplates: React.FC = () => {
           </form>
         </Modal>
       </Overlay>
+
+      <SmartConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Job Template"
+        message="This will permanently delete the job template. This action cannot be reversed."
+        itemName={deleteDialog.title}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isLoading={deleteDialog.isDeleting}
+        confirmText="Delete Template"
+      />
     </Page>
   );
 };

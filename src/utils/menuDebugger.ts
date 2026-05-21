@@ -128,14 +128,14 @@ export const setupMenuDebugger = () => {
     },
 
     // Test API call
-    testMenuUpdate: async (menuId: string, data: any) => {
+    testMenuUpdate: async (_menuId: string, data: any) => {
       try {
         const sanitized = menuDebugger.sanitizeData(data);
         console.log('Testing menu update with sanitized data:', sanitized);
         
         // This would need the actual API instance
         console.log('To test, use the actual API:');
-        console.log('menuConfigApi.updateMenuConfig(menuId, sanitized)');
+        console.log('menuConfigApi.updateMenuConfig(_menuId, sanitized)');
         
         return { success: true, sanitized };
       } catch (err) {

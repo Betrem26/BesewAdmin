@@ -40,6 +40,14 @@ export const platformAdminApi = {
       console.log('[platformAdminApi] Calling /platform-admin/companies with filters:', filters);
       const response = await partyApi.get('/platform-admin/companies', { params: filters });
       console.log('[platformAdminApi] Response received:', response.data);
+
+      // Debug: log unique verification_status values from the list
+      const list = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data ?? response.data?.items ?? [];
+      const statuses = [...new Set(list.map((c: any) => c.verification_status))];
+      console.log('[platformAdminApi] Unique verification_status values in response:', statuses);
+
       return response.data;
     } catch (error: any) {
       console.error('[platformAdminApi] Error in getAllCompanies:', error);
@@ -115,9 +123,16 @@ export const platformAdminApi = {
         status,
         reason
       });
+      console.log('[platformAdminApi] verifyCompany response:', JSON.stringify(response.data));
+
+      // Backend wraps errors in a 200 HTTP response with statusCode: 500 in the body
+      if (response.data?.statusCode && response.data.statusCode >= 400) {
+        throw new Error(response.data.message || 'Verification failed on the server');
+      }
+
       return response.data;
-    } catch (error) {
-      console.error('[platformAdminApi] Error in verifyCompany:', error);
+    } catch (error: any) {
+      console.error('[platformAdminApi] verifyCompany FAILED:', error?.response?.status, JSON.stringify(error?.response?.data));
       throw error;
     }
   },

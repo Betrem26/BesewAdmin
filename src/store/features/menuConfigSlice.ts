@@ -57,6 +57,22 @@ export const bulkUpdateMenuConfigs = createAsyncThunk(
   }
 );
 
+export const getAccessibleMenus = createAsyncThunk(
+  'menuConfig/getAccessible',
+  async (filters?: {
+    userType?: string;
+    workerType?: string;
+    subscriptionTier?: string;
+    trustScore?: number;
+  }, thunkAPI?: any) => {
+    try {
+      return await menuConfigApi.getAccessibleMenus(filters);
+    } catch (error: any) {
+      return thunkAPI?.rejectWithValue(error.response?.data || 'Failed to fetch accessible menus');
+    }
+  }
+);
+
 export const seedDefaultMenus = createAsyncThunk(
   'menuConfig/seed',
   async (_, { rejectWithValue }) => {
@@ -173,6 +189,18 @@ const menuConfigSlice = createSlice({
         state.success = true;
       })
       .addCase(seedDefaultMenus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(getAccessibleMenus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getAccessibleMenus.fulfilled, (state, action) => {
+        state.loading = false;
+        state.items = action.payload;
+      })
+      .addCase(getAccessibleMenus.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

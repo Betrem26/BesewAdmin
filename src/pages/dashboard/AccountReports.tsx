@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { FiAlertTriangle, FiRefreshCw, FiTrash2, FiShield, FiEye } from 'react-icons/fi';
 import { accountReportsApi, AccountReport, AccountRating } from '../../services/accountReportsApi';
 import { toast } from 'react-toastify';
+import { SmartConfirmDialog } from '../../components/SmartConfirmDialog';
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   pending:      { bg: '#fff3e0', color: '#f57c00' },
@@ -32,6 +33,12 @@ const AccountReports: React.FC = () => {
   const [updating, setUpdating] = useState(false);
   const [detailReport, setDetailReport] = useState<AccountReport | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; reportId: string; reportedPartyId: string; isDeleting: boolean }>({
+    isOpen: false,
+    reportId: '',
+    reportedPartyId: '',
+    isDeleting: false,
+  });
 
   useEffect(() => {
     loadReports();
@@ -99,15 +106,25 @@ const AccountReports: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this report? This cannot be undone.')) return;
+  const handleDelete = async (id: string, reportedPartyId: string) => {
+    setDeleteDialog({ isOpen: true, reportId: id, reportedPartyId, isDeleting: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
     try {
-      await accountReportsApi.deleteReport(id);
-      setReports(prev => prev.filter(r => r.id !== id));
+      await accountReportsApi.deleteReport(deleteDialog.reportId);
+      setReports(prev => prev.filter(r => r.id !== deleteDialog.reportId));
       toast.success('Report deleted');
+      setDeleteDialog({ isOpen: false, reportId: '', reportedPartyId: '', isDeleting: false });
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete report');
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, reportId: '', reportedPartyId: '', isDeleting: false });
   };
 
   const uniqueTypes = [...new Set(reports.map(r => r.type))];
@@ -238,7 +255,7 @@ const AccountReports: React.FC = () => {
                         <ActionBtn $primary title="Take Action" onClick={() => openActionModal(report)}>
                           <FiShield /> Take Action
                         </ActionBtn>
-                        <ActionBtn $danger title="Delete" onClick={() => handleDelete(report.id)}>
+                        <ActionBtn $danger title="Delete" onClick={() => handleDelete(report.id, report.reportedPartyId)}>
                           <FiTrash2 />
                         </ActionBtn>
                       </ActionBtns>
@@ -349,6 +366,17 @@ const AccountReports: React.FC = () => {
           )}
         </ModalBox>
       </Overlay>
+
+      <SmartConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Report"
+        message="This will permanently delete the report and all associated data. This action cannot be reversed."
+        itemName={deleteDialog.reportedPartyId}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isLoading={deleteDialog.isDeleting}
+        confirmText="Delete Report"
+      />
     </Container>
   );
 };
@@ -376,7 +404,32 @@ const StatLbl = styled.div`font-size: 11px; font-weight: 500; color: #7f8c8d; te
 
 const FilterBar = styled.div`background: white; padding: 16px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap;`;
 const SearchInput = styled.input`flex: 1; min-width: 240px; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; &:focus { outline: none; border-color: #3498db; }`;
-const FilterSelect = styled.select`padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white; cursor: pointer;`;
+const FilterSelect = styled.select`
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 120px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+  
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  }
+  
+  &:hover {
+    border-color: #999;
+  }
+  
+  option {
+    padding: 8px;
+  }
+`;
 
 const TableCard = styled.div`background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden;`;
 const Table = styled.table`width: 100%; border-collapse: collapse;`;

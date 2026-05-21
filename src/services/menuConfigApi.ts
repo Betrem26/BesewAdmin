@@ -6,6 +6,24 @@ export const menuConfigApi = {
     return response.data;
   },
 
+  getAccessibleMenus: async (filters?: {
+    userType?: string;
+    workerType?: string;
+    subscriptionTier?: string;
+    trustScore?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.userType) params.append('userType', filters.userType);
+    if (filters?.workerType) params.append('workerType', filters.workerType);
+    if (filters?.subscriptionTier) params.append('subscriptionTier', filters.subscriptionTier);
+    if (filters?.trustScore !== undefined) params.append('trustScore', String(filters.trustScore));
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/v1/menu-config/accessible?${queryString}` : '/api/v1/menu-config/accessible';
+    const response = await accountApi.get(url);
+    return response.data;
+  },
+
   getMenuConfig: async (menuId: string) => {
     const response = await accountApi.get(`/api/v1/menu-config/${menuId}`);
     return response.data;
@@ -32,7 +50,9 @@ export const menuConfigApi = {
       console.error('=== MENU UPDATE ERROR ===');
       console.error('Status:', error.response?.status);
       console.error('Message:', error.response?.data?.message);
+      console.error('Validation Errors:', error.response?.data?.validationErrors);
       console.error('Error Data:', error.response?.data);
+      console.error('Full Error:', error);
       console.error('========================');
       throw error;
     }

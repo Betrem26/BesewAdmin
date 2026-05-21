@@ -1,15 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
 import { FiSearch, FiTrash2, FiUserX, FiShield, FiPhone, FiCheckCircle, FiXCircle, FiFilter } from 'react-icons/fi';
 import accountsApi, { Account } from '../../services/accountsApi';
+import { SmartConfirmDialog } from '../../components/SmartConfirmDialog';
 
 const UserManagement: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; partyId: string; name: string; isDeleting: boolean }>({
+    isOpen: false,
+    partyId: '',
+    name: '',
+    isDeleting: false,
+  });
 
   useEffect(() => { fetchAccounts(); }, []);
 
@@ -25,15 +33,25 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDelete = async (partyId: string) => {
-    if (!window.confirm('Are you sure you want to delete this account?')) return;
+  const handleDeleteClick = (partyId: string, name: string) => {
+    setDeleteDialog({ isOpen: true, partyId, name, isDeleting: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
     try {
-      await accountsApi.deleteAccount(partyId);
-      setAccounts(prev => prev.filter(a => a.party_id !== partyId));
+      await accountsApi.deleteAccount(deleteDialog.partyId);
+      setAccounts(prev => prev.filter(a => a.party_id !== deleteDialog.partyId));
       toast.success('Account deleted successfully');
+      setDeleteDialog({ isOpen: false, partyId: '', name: '', isDeleting: false });
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete account');
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, partyId: '', name: '', isDeleting: false });
   };
 
   const handlePromote = async (partyId: string) => {
@@ -66,14 +84,43 @@ const UserManagement: React.FC = () => {
       a.party_id.toLowerCase().includes(q) ||
       (a.email || '').toLowerCase().includes(q) ||
       getPhone(a).toLowerCase().includes(q);
-    const matchesRole = filterRole === 'all' || a.role === filterRole;
+    const matchesRole = selectedRole === 'all' || a.role?.toLowerCase() === selectedRole.toLowerCase();
     const matchesStatus = filterStatus === 'all' || a.status === filterStatus;
     return matchesSearch && matchesRole && matchesStatus;
   });
 
+  // Apply sorting to filtered results
+  const processedUsers = useMemo(() => {
+    if (!filtered) return [];
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "newest") {
+        const dateA = new Date(a.date || "0").getTime();
+        const dateB = new Date(b.date || "0").getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === "oldest") {
+        const dateA = new Date(a.date || "0").getTime();
+        const dateB = new Date(b.date || "0").getTime();
+        return dateA - dateB;
+      }
+      if (sortBy === "alpha-asc") {
+        const nameA = (a.profile_name || "").toLowerCase();
+        const nameB = (b.profile_name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === "alpha-desc") {
+        const nameA = (a.profile_name || "").toLowerCase();
+        const nameB = (b.profile_name || "").toLowerCase();
+        return nameB.localeCompare(nameA);
+      }
+      return 0;
+    });
+  }, [filtered, sortBy]);
+
   const activeCount = accounts.filter(a => a.status === 'active').length;
   const pendingCount = accounts.filter(a => a.status === 'pending_otp').length;
-  const hasFilters = searchTerm || filterRole !== 'all' || filterStatus !== 'all';
+  const hasFilters = searchTerm || selectedRole !== 'all' || filterStatus !== 'all';
 
   return (
     <Container>
@@ -113,26 +160,32 @@ const UserManagement: React.FC = () => {
         <Divider />
         <FilterGroup>
           <FilterLabel><FiFilter size={13} /> Filters</FilterLabel>
-          <Select value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+          <Select value={selectedRole} onChange={e => setSelectedRole(e.target.value)}>
             <option value="all">All Roles</option>
-            <option value="user">User</option>
             <option value="admin">Admin</option>
-            <option value="agency">Agency</option>
+            <option value="employer">Employer</option>
+            <option value="job_seeker">Job Seeker</option>
           </Select>
           <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="all">All Status</option>
             <option value="active">Active</option>
             <option value="pending_otp">Pending OTP</option>
           </Select>
+          <Select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+            <option value="newest">Lastly Registered</option>
+            <option value="oldest">Oldest Registered</option>
+            <option value="alpha-asc">Name: A to Z</option>
+            <option value="alpha-desc">Name: Z to A</option>
+          </Select>
         </FilterGroup>
         {hasFilters && (
-          <ResultCount>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</ResultCount>
+          <ResultCount>{processedUsers.length} result{processedUsers.length !== 1 ? 's' : ''}</ResultCount>
         )}
       </FilterSection>
 
       {loading && <LoadingText>Loading accounts...</LoadingText>}
-      {!loading && filtered.length === 0 && <EmptyState>No accounts found</EmptyState>}
-      {!loading && filtered.length > 0 && (
+      {!loading && processedUsers.length === 0 && <EmptyState>No accounts found</EmptyState>}
+      {!loading && processedUsers.length > 0 && (
         <Table>
           <thead>
             <tr>
@@ -147,7 +200,7 @@ const UserManagement: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(account => (
+            {processedUsers.map(account => (
               <tr key={account.account_id}>
                 <Td>
                   <ProfileCell>
@@ -194,7 +247,7 @@ const UserManagement: React.FC = () => {
                         <FiUserX />
                       </ActionButton>
                     )}
-                    <DeleteButton title="Delete Account" onClick={() => handleDelete(account.party_id)}>
+                    <DeleteButton title="Delete Account" onClick={() => handleDeleteClick(account.party_id, account.profile_name)}>
                       <FiTrash2 />
                     </DeleteButton>
                   </ActionButtons>
@@ -204,6 +257,17 @@ const UserManagement: React.FC = () => {
           </tbody>
         </Table>
       )}
+
+      <SmartConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Account"
+        message="This will permanently delete the account and all associated data. This action cannot be reversed."
+        itemName={deleteDialog.name}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isLoading={deleteDialog.isDeleting}
+        confirmText="Delete Account"
+      />
     </Container>
   );
 };
@@ -329,6 +393,7 @@ const FilterGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 `;
 
 const FilterLabel = styled.span`
@@ -351,6 +416,7 @@ const Select = styled.select`
   color: #2d3748;
   outline: none;
   transition: border-color 0.2s;
+  min-width: 140px;
   &:focus { border-color: #3182ce; background: white; }
 `;
 

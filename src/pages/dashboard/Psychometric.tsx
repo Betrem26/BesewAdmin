@@ -16,6 +16,7 @@ import {
 import { PsychometricConfiguration } from '../../services/psychometricConfigApi';
 import { toast } from 'react-toastify';
 import ModelManagement from '../../components/psychometric/ModelManagement';
+import { SmartConfirmDialog } from '../../components/SmartConfirmDialog';
 
 type TabType = 'list' | 'models' | 'validity' | 'interpretation' | 'reliability' | 'normative' | 'questionBank' | 'scoring' | 'reporting';
 
@@ -35,6 +36,12 @@ const Psychometric: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('list');
   const [isCreating, setIsCreating] = useState(false);
   const [editedConfig, setEditedConfig] = useState<Partial<PsychometricConfiguration> | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; configId: string; version: string; isDeleting: boolean }>({
+    isOpen: false,
+    configId: '',
+    version: '',
+    isDeleting: false,
+  });
 
   useEffect(() => {
     dispatch(fetchAllConfigurations());
@@ -90,11 +97,25 @@ const Psychometric: React.FC = () => {
     dispatch(fetchAllConfigurations());
   };
 
-  const handleDeleteConfig = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this configuration?')) {
-      await dispatch(deleteConfiguration(id));
+  const handleDeleteConfig = async (id: string, version: string) => {
+    setDeleteDialog({ isOpen: true, configId: id, version, isDeleting: false });
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteDialog(prev => ({ ...prev, isDeleting: true }));
+    try {
+      await dispatch(deleteConfiguration(deleteDialog.configId));
       dispatch(fetchAllConfigurations());
+      toast.success('Configuration deleted successfully');
+      setDeleteDialog({ isOpen: false, configId: '', version: '', isDeleting: false });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete configuration');
+      setDeleteDialog(prev => ({ ...prev, isDeleting: false }));
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ isOpen: false, configId: '', version: '', isDeleting: false });
   };
 
   const handleClearCache = async () => {
@@ -374,7 +395,7 @@ const Psychometric: React.FC = () => {
                 )}
                 {!config.isActive && (
                   <ActionButton 
-                    onClick={() => config._id && handleDeleteConfig(config._id)}
+                    onClick={() => config._id && handleDeleteConfig(config._id, config.version)}
                     variant="danger"
                   >
                     Delete
@@ -1589,6 +1610,17 @@ const Psychometric: React.FC = () => {
       )}
 
       <Content>{renderTabContent()}</Content>
+
+      <SmartConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title="Delete Configuration"
+        message="This will permanently delete the configuration. This action cannot be reversed."
+        itemName={`Version ${deleteDialog.version}`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        isLoading={deleteDialog.isDeleting}
+        confirmText="Delete Configuration"
+      />
     </Container>
   );
 };

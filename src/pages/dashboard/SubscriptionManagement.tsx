@@ -221,7 +221,6 @@ const SubscriptionManagement: React.FC = () => {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState<SubscriptionOption | null>(null);
-  const [modalLoading, setModalLoading] = useState(false);
 
   const loadPlanById = async (id: string) => {
     const res = await subscriptionApi.getById(id);
@@ -327,7 +326,7 @@ const SubscriptionManagement: React.FC = () => {
   };
 
   const openEdit = async (plan: SubscriptionOption) => {
-    setModalLoading(true);
+    setLoading(true);
     try {
       const fullPlan = await loadPlanById(plan._id);
       setEditing(fullPlan);
@@ -348,7 +347,7 @@ const SubscriptionManagement: React.FC = () => {
     } catch (err) {
       toast.error(handleApiError(err));
     } finally {
-      setModalLoading(false);
+      setLoading(false);
     }
   };
 

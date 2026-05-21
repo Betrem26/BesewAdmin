@@ -16,7 +16,7 @@ import {
   FiDollarSign,
   FiBarChart2
 } from 'react-icons/fi';
-import { jobApi, handleApiError } from '../../services/api';
+import { jobApi, handleApiError, accountApi } from '../../services/api';
 import { jobMonitoringApi } from '../../services/monitoringApi';
 
 const Container = styled.div`
@@ -690,6 +690,22 @@ const ConfirmBtn = styled.button<{ variant?: 'danger' | 'secondary' }>`
   }
 `;
 
+const FormInput = styled.input`
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  }
+`;
+
 const PipelineWrap = styled.div`
   background: #f8fafc;
   border-radius: 12px;
@@ -880,8 +896,15 @@ const JobMonitoring: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
+  const [repostModalOpen, setRepostModalOpen] = useState(false);
   const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+  const [jobToSuspend, setJobToSuspend] = useState<string | null>(null);
+  const [jobToRepost, setJobToRepost] = useState<string | null>(null);
+  const [newDeadline, setNewDeadline] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [suspending, setSuspending] = useState(false);
+  const [reposting, setReposting] = useState(false);
 
   // Application stats for Hiring Pipeline
   const [appStats, setAppStats] = useState<ApplicationStats | null>(null);
@@ -1135,6 +1158,17 @@ const JobMonitoring: React.FC = () => {
     setDeleteConfirmOpen(true);
   };
 
+  const handleSuspendClick = (vacancyId: string) => {
+    setJobToSuspend(vacancyId);
+    setSuspendConfirmOpen(true);
+  };
+
+  const handleRepostClick = (vacancyId: string) => {
+    setJobToRepost(vacancyId);
+    setNewDeadline('');
+    setRepostModalOpen(true);
+  };
+
   const handleConfirmDelete = async () => {
     if (!jobToDelete) return;
     
@@ -1149,6 +1183,49 @@ const JobMonitoring: React.FC = () => {
       setError(message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!jobToSuspend) return;
+
+    try {
+      setSuspending(true);
+      // Call suspend API endpoint on Account API: POST /vacancy-statuses/{vacancy_id}/suspend
+      await accountApi.post(`/vacancy-statuses/${jobToSuspend}/suspend`);
+      setSuspendConfirmOpen(false);
+      setJobToSuspend(null);
+      // Refresh jobs to show updated status
+      loadJobs();
+    } catch (err: any) {
+      const message = err.response?.data?.message || handleApiError(err);
+      setError(message);
+    } finally {
+      setSuspending(false);
+    }
+  };
+
+  const handleConfirmRepost = async () => {
+    if (!jobToRepost || !newDeadline) {
+      setError('Please provide a new deadline');
+      return;
+    }
+
+    try {
+      setReposting(true);
+      // Call repost API endpoint on Account API: POST /vacancy-statuses/{vacancy_id}/repost
+      await accountApi.post(`/vacancy-statuses/${jobToRepost}/repost`, {
+        new_deadline: new Date(newDeadline).toISOString()
+      });
+      setRepostModalOpen(false);
+      setJobToRepost(null);
+      setNewDeadline('');
+      loadJobs();
+    } catch (err: any) {
+      const message = err.response?.data?.message || handleApiError(err);
+      setError(message);
+    } finally {
+      setReposting(false);
     }
   };
 
@@ -1376,6 +1453,24 @@ const JobMonitoring: React.FC = () => {
                             <IconButton onClick={() => handleViewJob(job)} title="View Details">
                               <FiEye size={16} />
                             </IconButton>
+                            {job.status === 'active' && (
+                              <IconButton 
+                                onClick={() => handleSuspendClick(job.vacancy_id)} 
+                                title="Suspend Job"
+                                style={{ color: '#f59e0b' }}
+                              >
+                                <FiAlertCircle size={16} />
+                              </IconButton>
+                            )}
+                            {(job.status === 'closed' || job.status === 'expired' || job.status === 'suspended') && (
+                              <IconButton 
+                                onClick={() => handleRepostClick(job.vacancy_id)} 
+                                title="Repost Job"
+                                style={{ color: '#10b981' }}
+                              >
+                                <FiRefreshCw size={16} />
+                              </IconButton>
+                            )}
                             <IconButton 
                               onClick={() => handleDeleteClick(job.vacancy_id)} 
                               title="Delete Job"
@@ -1699,6 +1794,59 @@ const JobMonitoring: React.FC = () => {
           )}
         </ModalContent>
       </Modal>
+
+      <ConfirmModal $isOpen={repostModalOpen}>
+        <ConfirmContent>
+          <ConfirmTitle>Repost Job Vacancy?</ConfirmTitle>
+          <ConfirmText>
+            Set a new deadline for this job posting to reactivate it and continue accepting applications.
+          </ConfirmText>
+          <div style={{ marginBottom: '24px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#7f8c8d', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              New Deadline
+            </label>
+            <FormInput 
+              type="datetime-local"
+              value={newDeadline}
+              onChange={(e) => setNewDeadline(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
+            />
+          </div>
+          <ConfirmButtons>
+            <ConfirmBtn onClick={() => setRepostModalOpen(false)}>
+              Cancel
+            </ConfirmBtn>
+            <ConfirmBtn 
+              variant="danger" 
+              onClick={handleConfirmRepost}
+              disabled={reposting || !newDeadline}
+            >
+              {reposting ? 'Reposting...' : 'Repost Job'}
+            </ConfirmBtn>
+          </ConfirmButtons>
+        </ConfirmContent>
+      </ConfirmModal>
+
+      <ConfirmModal $isOpen={suspendConfirmOpen}>
+        <ConfirmContent>
+          <ConfirmTitle>Suspend Job Post?</ConfirmTitle>
+          <ConfirmText>
+            Are you sure you want to suspend this job post? It will no longer accept applications but can be reposted later.
+          </ConfirmText>
+          <ConfirmButtons>
+            <ConfirmBtn onClick={() => setSuspendConfirmOpen(false)}>
+              Cancel
+            </ConfirmBtn>
+            <ConfirmBtn 
+              variant="danger" 
+              onClick={handleConfirmSuspend}
+              disabled={suspending}
+            >
+              {suspending ? 'Suspending...' : 'Suspend'}
+            </ConfirmBtn>
+          </ConfirmButtons>
+        </ConfirmContent>
+      </ConfirmModal>
 
       <ConfirmModal $isOpen={deleteConfirmOpen}>
         <ConfirmContent>

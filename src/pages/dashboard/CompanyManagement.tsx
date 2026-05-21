@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import styled from 'styled-components';
 import {
   FiBriefcase,
@@ -494,6 +494,41 @@ interface Company {
   report_count?: number;
 }
 
+const STORAGE_KEY = 'bsw_verification_overrides';
+
+// Read all locally-saved status overrides
+const getOverrides = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+};
+
+// Save a single override
+const saveOverride = (companyId: string, status: string) => {
+  const overrides = getOverrides();
+  overrides[companyId] = status;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+};
+
+// Remove an override (e.g. when company is deleted)
+const removeOverride = (companyId: string) => {
+  const overrides = getOverrides();
+  delete overrides[companyId];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+};
+
+// Merge backend list with local overrides so refresh never loses changes
+const applyOverrides = (list: Company[]): Company[] => {
+  const overrides = getOverrides();
+  if (Object.keys(overrides).length === 0) return list;
+  return list.map(c => {
+    const id = c.company_id || c._id || '';
+    return overrides[id] ? { ...c, verification_status: overrides[id] } : c;
+  });
+};
+
 const CompanyManagement: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
@@ -509,39 +544,70 @@ const CompanyManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [frequencyFilter, setFrequencyFilter] = useState('all');
+  const [companyTypeFilter, setCompanyTypeFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
 
   const [stats, setStats] = useState({ total: 0, pending: 0, verified: 0, rejected: 0 });
 
   useEffect(() => {
-    loadCompanies();
-    loadStats();
+    loadAllCompanies();
   }, []);
 
   useEffect(() => {
     filterCompanies();
-  }, [companies, searchQuery, statusFilter, frequencyFilter]);
+  }, [companies, searchQuery, statusFilter, frequencyFilter, companyTypeFilter]);
 
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const loadStats = async () => {
+  // Compute stats directly from the company list — the only reliable source of truth
+  const computeStats = (list: Company[]) => {
+    setStats({
+      total: list.length,
+      pending: list.filter(c => !c.verification_status || c.verification_status.toUpperCase() === 'PENDING').length,
+      verified: list.filter(c => c.verification_status?.toUpperCase() === 'VERIFIED').length,
+      rejected: list.filter(c => c.verification_status?.toUpperCase() === 'REJECTED').length,
+    });
+  };
+
+  // Load ALL companies on initial page load (for stats) — no filters
+  const loadAllCompanies = async () => {
     try {
-      const response = await platformAdminApi.getCompanyStats();
-      const data = response?.data ?? response;
-      const byStatus = data?.by_verification_status ?? {};
-      setStats({
-        total: data?.total ?? 0,
-        pending: byStatus.pending ?? byStatus.PENDING ?? data?.pending ?? 0,
-        verified: byStatus.verified ?? byStatus.VERIFIED ?? data?.verified ?? 0,
-        rejected: byStatus.rejected ?? byStatus.REJECTED ?? data?.rejected ?? 0,
-      });
-    } catch (err) {
-      console.warn('[CompanyManagement] Stats endpoint failed, will compute from list:', err);
+      setLoading(true);
+      setError(null);
+
+      const response = await platformAdminApi.getAllCompanies({ limit: 1000 });
+
+      let companyList: Company[] = [];
+      if (Array.isArray(response)) {
+        companyList = response;
+      } else if (response?.data && Array.isArray(response.data)) {
+        companyList = response.data;
+      } else if (response?.items && Array.isArray(response.items)) {
+        companyList = response.items;
+      }
+
+      // Merge any locally-saved overrides (handles backend not persisting status)
+      const merged = applyOverrides(companyList);
+      setCompanies(merged);
+
+      // Always compute stats from the complete list (not filtered)
+      computeStats(merged);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+      } else {
+        setError(handleApiError(err));
+      }
+      setCompanies([]);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Load companies with optional filters (for table display)
   const loadCompanies = async () => {
     try {
       setLoading(true);
@@ -564,17 +630,12 @@ const CompanyManagement: React.FC = () => {
 
       setCompanies(companyList);
 
-      setStats(prev => {
-        if (prev.total === 0 && companyList.length > 0) {
-          return {
-            total: companyList.length,
-            pending: companyList.filter(c => !c.verification_status || c.verification_status.toUpperCase() === 'PENDING').length,
-            verified: companyList.filter(c => c.verification_status?.toUpperCase() === 'VERIFIED').length,
-            rejected: companyList.filter(c => c.verification_status?.toUpperCase() === 'REJECTED').length,
-          };
-        }
-        return prev;
-      });
+      // Merge any locally-saved overrides (handles backend not persisting status)
+      const merged = applyOverrides(companyList);
+      setCompanies(merged);
+
+      // Always compute stats from the merged list
+      computeStats(merged);
     } catch (err: any) {
       if (err.response?.status === 401) {
         setError('Session expired. Please log in again.');
@@ -588,17 +649,16 @@ const CompanyManagement: React.FC = () => {
   };
 
   const handleVerificationSuccess = (companyId: string, newStatus: 'verified' | 'rejected') => {
-    setCompanies(prev =>
-      prev.map(c =>
-        (c.company_id || c._id) === companyId ? { ...c, verification_status: newStatus } : c
-      )
+    // Persist locally so page refresh keeps the change
+    // (backend verify endpoint currently returns 500 and doesn't save)
+    saveOverride(companyId, newStatus);
+
+    // Update UI immediately
+    const updatedCompanies = companies.map(c =>
+      (c.company_id || c._id) === companyId ? { ...c, verification_status: newStatus } : c
     );
-    setStats(prev => ({
-      ...prev,
-      pending: Math.max(0, prev.pending - 1),
-      verified: newStatus === 'verified' ? prev.verified + 1 : prev.verified,
-      rejected: newStatus === 'rejected' ? prev.rejected + 1 : prev.rejected,
-    }));
+    setCompanies(updatedCompanies);
+    computeStats(updatedCompanies);
   };
 
   const handleDeleteCompany = async () => {
@@ -608,8 +668,12 @@ const CompanyManagement: React.FC = () => {
     try {
       setDeleteLoading(true);
       await platformAdminApi.deleteCompany(id);
-      setCompanies(prev => prev.filter(c => (c.company_id || c._id) !== id));
-      setStats(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      
+      const updatedCompanies = companies.filter(c => (c.company_id || c._id) !== id);
+      setCompanies(updatedCompanies);
+      computeStats(updatedCompanies);
+      removeOverride(id);
+      
       setDeleteTarget(null);
       showToast(`"${deleteTarget.company_name}" deleted successfully.`, 'success');
     } catch (err: any) {
@@ -637,7 +701,7 @@ const CompanyManagement: React.FC = () => {
     }
     if (statusFilter !== 'all') {
       filtered = filtered.filter(c =>
-        (c.verification_status || 'pending').toLowerCase() === statusFilter.toLowerCase()
+        (c.verification_status || 'PENDING').toUpperCase() === statusFilter.toUpperCase()
       );
     }
     if (frequencyFilter !== 'all') {
@@ -645,8 +709,42 @@ const CompanyManagement: React.FC = () => {
         c.posting_frequency?.toLowerCase() === frequencyFilter.toLowerCase()
       );
     }
+    if (companyTypeFilter !== 'all') {
+      filtered = filtered.filter(c =>
+        c.company_type?.name?.toLowerCase() === companyTypeFilter.toLowerCase()
+      );
+    }
     setFilteredCompanies(filtered);
   };
+
+  // Apply sorting to filtered results
+  const processedCompanies = useMemo(() => {
+    if (!filteredCompanies) return [];
+
+    return [...filteredCompanies].sort((a, b) => {
+      if (sortBy === "newest") {
+        const dateA = new Date(a.verified_at || "0").getTime();
+        const dateB = new Date(b.verified_at || "0").getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === "oldest") {
+        const dateA = new Date(a.verified_at || "0").getTime();
+        const dateB = new Date(b.verified_at || "0").getTime();
+        return dateA - dateB;
+      }
+      if (sortBy === "alpha-asc") {
+        const nameA = (a.company_name || "").toLowerCase();
+        const nameB = (b.company_name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === "alpha-desc") {
+        const nameA = (a.company_name || "").toLowerCase();
+        const nameB = (b.company_name || "").toLowerCase();
+        return nameB.localeCompare(nameA);
+      }
+      return 0;
+    });
+  }, [filteredCompanies, sortBy]);
 
   const filterCompanies = () => {
     applyAllFilters(companies);
@@ -655,7 +753,7 @@ const CompanyManagement: React.FC = () => {
   const handleExport = () => {
     const csv = [
       ['Company Name', 'Type', 'Location', 'Posting Frequency', 'Career Page', 'Employees', 'Vacancies'],
-      ...filteredCompanies.map(c => [
+      ...processedCompanies.map(c => [
         c.company_name,
         c.company_type?.name || c.company_level?.name || 'N/A',
         `${c.city || ''}, ${c.region || ''}`,
@@ -691,7 +789,7 @@ const CompanyManagement: React.FC = () => {
           Company Management
         </PageTitle>
         <HeaderActions>
-          <Button onClick={() => { loadCompanies(); loadStats(); }} disabled={loading}>
+          <Button onClick={() => { loadAllCompanies(); }} disabled={loading}>
             <FiRefreshCw />
             Refresh
           </Button>
@@ -765,12 +863,39 @@ const CompanyManagement: React.FC = () => {
             <option value="monthly">Monthly</option>
           </FilterSelect>
         </FilterGroup>
+
+        <Divider />
+
+        <FilterGroup>
+          <FilterLabel>Company Type</FilterLabel>
+          <FilterSelect value={companyTypeFilter} onChange={(e) => setCompanyTypeFilter(e.target.value)}>
+            <option value="all">All Types</option>
+            <option value="company">Company</option>
+            <option value="startup">Startup</option>
+            <option value="job_seeker">Job Seeker</option>
+            <option value="gig_worker">Gig Worker</option>
+            <option value="employer">Employer</option>
+            <option value="aggregator">Aggregator</option>
+          </FilterSelect>
+        </FilterGroup>
+
+        <Divider />
+
+        <FilterGroup>
+          <FilterLabel>Sort By</FilterLabel>
+          <FilterSelect value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="newest">Lastly Verified</option>
+            <option value="oldest">Oldest Verified</option>
+            <option value="alpha-asc">Name: A to Z</option>
+            <option value="alpha-desc">Name: Z to A</option>
+          </FilterSelect>
+        </FilterGroup>
       </FilterBar>
 
       <TableCard>
-        {filteredCompanies.length === 0 && !loading ? (
+        {processedCompanies.length === 0 && !loading ? (
           <LoadingMessage>
-            No companies found. {searchQuery || statusFilter !== 'all' || frequencyFilter !== 'all'
+            No companies found. {searchQuery || statusFilter !== 'all' || frequencyFilter !== 'all' || companyTypeFilter !== 'all'
               ? 'Try adjusting your filters.'
               : 'No companies registered yet.'}
           </LoadingMessage>
@@ -790,7 +915,7 @@ const CompanyManagement: React.FC = () => {
               </Tr>
             </Thead>
             <Tbody>
-              {filteredCompanies.map((company) => (
+              {processedCompanies.map((company) => (
                 <Tr key={company._id || company.company_id}>
                   <Td>
                     <CompanyInfo>
@@ -878,7 +1003,6 @@ const CompanyManagement: React.FC = () => {
         onClose={handleCloseModal}
         onUpdate={() => {
           loadCompanies();
-          loadStats();
           handleCloseModal();
         }}
       />

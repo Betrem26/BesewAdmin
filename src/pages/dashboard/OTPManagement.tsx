@@ -9,6 +9,7 @@ import {
   clearRateLimitStatus,
 } from '../../store/features/otpManagementSlice';
 import { toast } from 'react-toastify';
+import { SmartConfirmDialog } from '../../components/SmartConfirmDialog';
 
 const OTPManagement: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -16,6 +17,11 @@ const OTPManagement: React.FC = () => {
     (state) => state.otpManagement
   );
   const [searchPhone, setSearchPhone] = useState('');
+  const [resetDialog, setResetDialog] = useState<{ isOpen: boolean; phone: string; isResetting: boolean }>({
+    isOpen: false,
+    phone: '',
+    isResetting: false,
+  });
 
   useEffect(() => {
     dispatch(fetchBlockedNumbers());
@@ -37,15 +43,29 @@ const OTPManagement: React.FC = () => {
   };
 
   const handleResetRateLimit = async (phone: string) => {
-    if (window.confirm(`Reset rate limit for ${phone}?`)) {
-      await dispatch(resetRateLimit({ phoneNumber: phone, reason: 'Admin reset' }));
+    setResetDialog({ isOpen: true, phone, isResetting: false });
+  };
+
+  const handleResetConfirm = async () => {
+    setResetDialog(prev => ({ ...prev, isResetting: true }));
+    try {
+      await dispatch(resetRateLimit({ phoneNumber: resetDialog.phone, reason: 'Admin reset' }));
       toast.success('Rate limit reset successfully');
       dispatch(fetchBlockedNumbers());
       dispatch(clearRateLimitStatus());
+      setResetDialog({ isOpen: false, phone: '', isResetting: false });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reset rate limit');
+      setResetDialog(prev => ({ ...prev, isResetting: false }));
     }
   };
 
+  const handleResetCancel = () => {
+    setResetDialog({ isOpen: false, phone: '', isResetting: false });
+  };
+
   return (
+    <>
     <Container>
       <Header>
         <Title>OTP & Rate Limit Management</Title>
@@ -127,6 +147,18 @@ const OTPManagement: React.FC = () => {
         )}
       </Section>
     </Container>
+
+    <SmartConfirmDialog
+      isOpen={resetDialog.isOpen}
+      title="Reset Rate Limit"
+      message="This will reset the rate limit counter for this phone number, allowing new OTP attempts."
+      itemName={resetDialog.phone}
+      onConfirm={handleResetConfirm}
+      onCancel={handleResetCancel}
+      isLoading={resetDialog.isResetting}
+      confirmText="Reset Rate Limit"
+    />
+    </>
   );
 };
 

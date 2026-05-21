@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import { FiUsers, FiSearch, FiDownload, FiEye, FiShield, FiUserX, FiTrash2, FiRefreshCw, FiPhone, FiMail, FiHash, FiUser } from 'react-icons/fi';
 import accountsApi, { Account } from '../../services/accountsApi';
@@ -26,8 +26,8 @@ const UserManagementEnhanced: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [mfaTarget, setMfaTarget] = useState<{ account: Account; action: MfaActionType; newRole?: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
-  const [partyTypeFilter, setPartyTypeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState('newest');
   const phoneDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phoneQuery = searchQuery;
   const itemsPerPage = 20;
@@ -151,11 +151,11 @@ const UserManagementEnhanced: React.FC = () => {
 
   const handleExport = () => {
     const csv = [
-      ['Account ID', 'Party ID', 'Profile Name', 'Email', 'Role', 'Status', 'Party Type', 'Date'],
+      ['Account ID', 'Party ID', 'Profile Name', 'Email', 'Role', 'Status', 'Date'],
       ...filtered.map(a => [
         a.account_id, a.party_id, a.profile_name,
         a.email || '', a.role, a.status,
-        a.party_type.name, new Date(a.date).toLocaleDateString()
+        new Date(a.date).toLocaleDateString()
       ])
     ].map(r => r.join(',')).join('\n');
 
@@ -193,12 +193,41 @@ const UserManagementEnhanced: React.FC = () => {
       verifiedFilter === 'all' ||
       (verifiedFilter === 'verified' && (a.is_verified || a.verified)) ||
       (verifiedFilter === 'unverified' && !a.is_verified && !a.verified);
-    const matchPartyType = partyTypeFilter === 'all' || a.party_type?.name?.toLowerCase() === partyTypeFilter;
-    return matchSearch && matchRole && matchStatus && matchVerified && matchPartyType;
+    return matchSearch && matchRole && matchStatus && matchVerified;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Apply sorting to filtered results BEFORE pagination
+  const sortedAccounts = useMemo(() => {
+    if (!filtered) return [];
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "newest") {
+        const dateA = new Date(a.date || "0").getTime();
+        const dateB = new Date(b.date || "0").getTime();
+        return dateB - dateA;
+      }
+      if (sortBy === "oldest") {
+        const dateA = new Date(a.date || "0").getTime();
+        const dateB = new Date(b.date || "0").getTime();
+        return dateA - dateB;
+      }
+      if (sortBy === "alpha-asc") {
+        const nameA = (a.profile_name || "").toLowerCase();
+        const nameB = (b.profile_name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === "alpha-desc") {
+        const nameA = (a.profile_name || "").toLowerCase();
+        const nameB = (b.profile_name || "").toLowerCase();
+        return nameB.localeCompare(nameA);
+      }
+      return 0;
+    });
+  }, [filtered, sortBy]);
+
+  const processedAccounts = sortedAccounts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const activeCount = accounts.filter(a => a.status === 'active').length;
   const pendingCount = accounts.filter(a => a.status === 'pending_otp').length;
   const adminCount = accounts.filter(a => a.role === 'admin').length;
@@ -325,22 +354,6 @@ const UserManagementEnhanced: React.FC = () => {
           <FilterBarDivider />
 
           <FilterSection2>
-            <FilterSectionLabel>Party Type</FilterSectionLabel>
-            <FilterDropdown
-              value={partyTypeFilter}
-              onChange={e => { setPartyTypeFilter(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="all">All types</option>
-              <option value="candidate">Candidate</option>
-              <option value="agency">Agency</option>
-              <option value="employee">Employee</option>
-              <option value="individual">Individual</option>
-            </FilterDropdown>
-          </FilterSection2>
-
-          <FilterBarDivider />
-
-          <FilterSection2>
             <FilterSectionLabel>Verified</FilterSectionLabel>
             <FilterDropdown
               value={verifiedFilter}
@@ -352,8 +365,23 @@ const UserManagementEnhanced: React.FC = () => {
             </FilterDropdown>
           </FilterSection2>
 
-          {(roleFilter !== 'all' || statusFilter !== 'all' || verifiedFilter !== 'all' || partyTypeFilter !== 'all' || searchQuery) && (
-            <ClearAllBtn onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setVerifiedFilter('all'); setPartyTypeFilter('all'); setSearchQuery(''); setPhoneSearchResult(null); setCurrentPage(1); }}>
+          <FilterBarDivider />
+
+          <FilterSection2>
+            <FilterSectionLabel>Sort By</FilterSectionLabel>
+            <FilterDropdown
+              value={sortBy}
+              onChange={e => { setSortBy(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="newest">Lastly Registered</option>
+              <option value="oldest">Oldest Registered</option>
+              <option value="alpha-asc">Name: A to Z</option>
+              <option value="alpha-desc">Name: Z to A</option>
+            </FilterDropdown>
+          </FilterSection2>
+
+          {(roleFilter !== 'all' || statusFilter !== 'all' || verifiedFilter !== 'all' || searchQuery) && (
+            <ClearAllBtn onClick={() => { setRoleFilter('all'); setStatusFilter('all'); setVerifiedFilter('all'); setSearchQuery(''); setPhoneSearchResult(null); setCurrentPage(1); }}>
               Clear all
             </ClearAllBtn>
           )}
@@ -396,7 +424,6 @@ const UserManagementEnhanced: React.FC = () => {
               <Th>Phone</Th>
               <Th>Verified</Th>
               <Th>Party ID</Th>
-              <Th>Type</Th>
               <Th>Role</Th>
               <Th>Status</Th>
               <Th>Subscription</Th>
@@ -405,13 +432,13 @@ const UserManagementEnhanced: React.FC = () => {
             </Tr>
           </thead>
           <tbody>
-            {paginated.length === 0 ? (
+            {processedAccounts.length === 0 ? (
               <Tr>
                 <Td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: '#7f8c8d' }}>
                   No accounts found.
                 </Td>
               </Tr>
-            ) : paginated.map(account => (
+            ) : processedAccounts.map(account => (
               <Tr key={account.account_id} $alert={ratings[account.party_id]?.rating < 4}>
                 <Td>
                   <ProfileCell>
@@ -449,7 +476,6 @@ const UserManagementEnhanced: React.FC = () => {
                   }
                 </Td>
                 <Td>{account.party_id}</Td>
-                <Td>{account.party_type.name}</Td>
                 <Td><RoleBadge $role={account.role}>{account.role}</RoleBadge></Td>
                 <Td><StatusBadge $status={account.status}>{account.status.replace('_', ' ')}</StatusBadge></Td>
                 <Td>{account.subscription ? <SubBadge>{account.subscription.type}</SubBadge> : '-'}</Td>
