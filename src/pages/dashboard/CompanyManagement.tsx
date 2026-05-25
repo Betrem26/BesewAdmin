@@ -28,6 +28,41 @@ const PageHeader = styled.div`
   margin-bottom: 30px;
 `;
 
+const TabContainer = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #ecf0f1;
+`;
+
+const Tab = styled.button<{ $active?: boolean }>`
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${props => props.$active ? '#3498db' : '#7f8c8d'};
+  border-bottom: 3px solid ${props => props.$active ? '#3498db' : 'transparent'};
+  transition: all 0.2s;
+  position: relative;
+  bottom: -2px;
+
+  &:hover {
+    color: #3498db;
+  }
+`;
+
+const TabBadge = styled.span`
+  background: #e74c3c;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+`;
+
 const PageTitle = styled.h1`
   font-size: 28px;
   font-weight: 600;
@@ -42,9 +77,9 @@ const HeaderActions = styled.div`
   gap: 12px;
 `;
 
-const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
-  background: ${props => props.variant === 'primary' ? '#3498db' : '#ecf0f1'};
-  color: ${props => props.variant === 'primary' ? 'white' : '#2c3e50'};
+const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+  background: ${props => props.$variant === 'primary' ? '#3498db' : '#ecf0f1'};
+  color: ${props => props.$variant === 'primary' ? 'white' : '#2c3e50'};
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
@@ -57,7 +92,7 @@ const Button = styled.button<{ variant?: 'primary' | 'secondary' }>`
   transition: all 0.2s;
 
   &:hover {
-    background: ${props => props.variant === 'primary' ? '#2980b9' : '#d5dbdb'};
+    background: ${props => props.$variant === 'primary' ? '#2980b9' : '#d5dbdb'};
   }
 
   &:disabled {
@@ -468,8 +503,10 @@ interface Company {
   _id?: string;
   company_id?: string;
   company_name: string;
-  company_type?: { name: string };
-  company_level?: { name: string };
+  company_type?: { name: string } | string;
+  company_level?: { name: string } | string;
+  role?: string;
+  type?: string;
   logo?: string;
   location?: string;
   city?: string;
@@ -529,6 +566,106 @@ const applyOverrides = (list: Company[]): Company[] => {
   });
 };
 
+// Standardized company types mapping - STRICT 4 TYPES ONLY
+const STANDARDIZED_COMPANY_TYPES: Record<string, string> = {
+  // Employer variations
+  'employer': 'Employer',
+  'employers': 'Employer',
+  'company': 'Employer',
+  'enterprise': 'Employer',
+  'corporate': 'Employer',
+  'organization': 'Employer',
+  'business': 'Employer',
+  
+  // Startup Founder variations
+  'startup': 'Startup Founder',
+  'startup_founder': 'Startup Founder',
+  'startup founder': 'Startup Founder',
+  'startupfounder': 'Startup Founder',
+  'founder': 'Startup Founder',
+  'startups': 'Startup Founder',
+  
+  // Aggregator variations
+  'aggregator': 'Aggregator',
+  'aggregators': 'Aggregator',
+  'job aggregator': 'Aggregator',
+  'recruitment agency': 'Aggregator',
+  'recruitment_agency': 'Aggregator',
+  'recruitmentagency': 'Aggregator',
+  'recruiter': 'Aggregator',
+  'recruitment': 'Aggregator',
+  'agency': 'Aggregator',
+  'broker': 'Aggregator',
+  'bpo': 'Aggregator',
+  'staffing': 'Aggregator',
+  'staffing agency': 'Aggregator',
+  'consulting': 'Aggregator',
+  'consulting agency': 'Aggregator',
+  
+  // NGO / Non-Profit variations
+  'ngo': 'NGO / Non-Profit',
+  'ngos': 'NGO / Non-Profit',
+  'non-profit': 'NGO / Non-Profit',
+  'nonprofit': 'NGO / Non-Profit',
+  'non_profit': 'NGO / Non-Profit',
+  'ngo / non-profit': 'NGO / Non-Profit',
+  'ngo/non-profit': 'NGO / Non-Profit',
+  'charity': 'NGO / Non-Profit',
+  'foundation': 'NGO / Non-Profit',
+};
+
+// Map company type to standardized type
+const getStandardizedCompanyType = (company: Company): string => {
+  let typeKey = '';
+  
+  // Try to extract type from various possible fields in order of priority
+  // 1. Check company_type (string or object)
+  if (typeof company.company_type === 'string') {
+    typeKey = company.company_type;
+  } else if (company.company_type?.name) {
+    typeKey = company.company_type.name;
+  }
+  
+  // 2. Check role field
+  if (!typeKey && typeof company.role === 'string') {
+    typeKey = company.role;
+  }
+  
+  // 3. Check type field
+  if (!typeKey && typeof company.type === 'string') {
+    typeKey = company.type;
+  }
+  
+  // 4. Fallback to company_level if company_type is empty
+  if (!typeKey) {
+    if (typeof company.company_level === 'string') {
+      typeKey = company.company_level;
+    } else if (company.company_level?.name) {
+      typeKey = company.company_level.name;
+    }
+  }
+  
+  // 5. Normalize the key
+  typeKey = typeKey.toLowerCase().trim();
+  
+  // 6. Look up in mapping
+  const standardized = STANDARDIZED_COMPANY_TYPES[typeKey];
+  
+  // Debug logging for unmapped types
+  if (!standardized && typeKey) {
+    console.warn('[CompanyManagement] Unknown company type:', {
+      original: typeKey,
+      company_type: company.company_type,
+      company_level: company.company_level,
+      role: company.role,
+      type: company.type,
+      company_name: company.company_name
+    });
+  }
+  
+  return standardized || 'Unknown';
+};
+
 const CompanyManagement: React.FC = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
@@ -546,6 +683,7 @@ const CompanyManagement: React.FC = () => {
   const [frequencyFilter, setFrequencyFilter] = useState('all');
   const [companyTypeFilter, setCompanyTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
 
   const [stats, setStats] = useState({ total: 0, pending: 0, verified: 0, rejected: 0 });
 
@@ -555,7 +693,7 @@ const CompanyManagement: React.FC = () => {
 
   useEffect(() => {
     filterCompanies();
-  }, [companies, searchQuery, statusFilter, frequencyFilter, companyTypeFilter]);
+  }, [companies, searchQuery, statusFilter, frequencyFilter, companyTypeFilter, activeTab]);
 
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type });
@@ -566,8 +704,8 @@ const CompanyManagement: React.FC = () => {
   const computeStats = (list: Company[]) => {
     setStats({
       total: list.length,
-      pending: list.filter(c => !c.verification_status || c.verification_status.toUpperCase() === 'PENDING').length,
-      verified: list.filter(c => c.verification_status?.toUpperCase() === 'VERIFIED').length,
+      pending: list.filter(c => !c.verification_status || c.verification_status.toUpperCase() === 'PENDING' || c.verification_status.toUpperCase() === 'PENDING_APPROVAL').length,
+      verified: list.filter(c => c.verification_status?.toUpperCase() === 'VERIFIED' || c.verification_status?.toUpperCase() === 'APPROVED').length,
       rejected: list.filter(c => c.verification_status?.toUpperCase() === 'REJECTED').length,
     });
   };
@@ -587,6 +725,15 @@ const CompanyManagement: React.FC = () => {
         companyList = response.data;
       } else if (response?.items && Array.isArray(response.items)) {
         companyList = response.items;
+      }
+
+      // Debug: log company type values
+      if (companyList.length > 0) {
+        console.log('[CompanyManagement] Sample company types:', {
+          company_type: companyList[0].company_type,
+          company_level: companyList[0].company_level,
+          standardized: getStandardizedCompanyType(companyList[0])
+        });
       }
 
       // Merge any locally-saved overrides (handles backend not persisting status)
@@ -650,7 +797,6 @@ const CompanyManagement: React.FC = () => {
 
   const handleVerificationSuccess = (companyId: string, newStatus: 'verified' | 'rejected') => {
     // Persist locally so page refresh keeps the change
-    // (backend verify endpoint currently returns 500 and doesn't save)
     saveOverride(companyId, newStatus);
 
     // Update UI immediately
@@ -659,6 +805,40 @@ const CompanyManagement: React.FC = () => {
     );
     setCompanies(updatedCompanies);
     computeStats(updatedCompanies);
+    
+    // If verified, automatically approve the company
+    if (newStatus === 'verified') {
+      const company = updatedCompanies.find(c => (c.company_id || c._id) === companyId);
+      if (company) {
+        handleApproveCompany(company);
+      }
+    }
+  };
+
+  const handleApproveCompany = async (company: Company) => {
+    const companyId = company.company_id || company._id;
+    if (!companyId) return;
+
+    try {
+      // Update company status to APPROVED via company-data endpoint
+      await platformAdminApi.updateCompany(companyId, {
+        verification_status: 'APPROVED'
+      });
+      
+      // Update local state with APPROVED status
+      const updatedCompanies = companies.map(c =>
+        (c.company_id || c._id) === companyId 
+          ? { ...c, verification_status: 'APPROVED' } 
+          : c
+      );
+      setCompanies(updatedCompanies);
+      computeStats(updatedCompanies);
+      saveOverride(companyId, 'APPROVED');
+      
+      showToast(`✓ "${company.company_name}" approved! Dashboard unlocked.`, 'success');
+    } catch (err: any) {
+      showToast(handleApiError(err) || 'Failed to approve company', 'error');
+    }
   };
 
   const handleDeleteCompany = async () => {
@@ -685,6 +865,15 @@ const CompanyManagement: React.FC = () => {
 
   const applyAllFilters = (baseList: Company[]) => {
     let filtered = baseList;
+    
+    // Apply tab filter first - filter for PENDING_APPROVAL status
+    if (activeTab === 'pending') {
+      filtered = filtered.filter(c => {
+        const status = (c.verification_status || 'PENDING_APPROVAL').toUpperCase();
+        return status === 'PENDING_APPROVAL' || status === 'PENDING';
+      });
+    }
+    
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(c =>
@@ -701,7 +890,7 @@ const CompanyManagement: React.FC = () => {
     }
     if (statusFilter !== 'all') {
       filtered = filtered.filter(c =>
-        (c.verification_status || 'PENDING').toUpperCase() === statusFilter.toUpperCase()
+        (c.verification_status || 'PENDING_APPROVAL').toUpperCase() === statusFilter.toUpperCase()
       );
     }
     if (frequencyFilter !== 'all') {
@@ -710,9 +899,10 @@ const CompanyManagement: React.FC = () => {
       );
     }
     if (companyTypeFilter !== 'all') {
-      filtered = filtered.filter(c =>
-        c.company_type?.name?.toLowerCase() === companyTypeFilter.toLowerCase()
-      );
+      filtered = filtered.filter(c => {
+        const standardizedType = getStandardizedCompanyType(c);
+        return standardizedType.toLowerCase() === companyTypeFilter.toLowerCase();
+      });
     }
     setFilteredCompanies(filtered);
   };
@@ -755,7 +945,7 @@ const CompanyManagement: React.FC = () => {
       ['Company Name', 'Type', 'Location', 'Posting Frequency', 'Career Page', 'Employees', 'Vacancies'],
       ...processedCompanies.map(c => [
         c.company_name,
-        c.company_type?.name || c.company_level?.name || 'N/A',
+        getStandardizedCompanyType(c),
         `${c.city || ''}, ${c.region || ''}`,
         c.posting_frequency || 'N/A',
         c.has_career_page || c.career_page_url ? 'Yes' : 'No',
@@ -826,6 +1016,16 @@ const CompanyManagement: React.FC = () => {
         </StatCard>
       </StatsBar>
 
+      <TabContainer>
+        <Tab $active={activeTab === 'all'} onClick={() => setActiveTab('all')}>
+          All Companies
+        </Tab>
+        <Tab $active={activeTab === 'pending'} onClick={() => setActiveTab('pending')}>
+          Pending Approvals
+          {stats.pending > 0 && <TabBadge>{stats.pending}</TabBadge>}
+        </Tab>
+      </TabContainer>
+
       <FilterBar>
         <FilterGroup style={{ flex: 1, minWidth: 0 }}>
           <FilterLabel>Search</FilterLabel>
@@ -870,12 +1070,10 @@ const CompanyManagement: React.FC = () => {
           <FilterLabel>Company Type</FilterLabel>
           <FilterSelect value={companyTypeFilter} onChange={(e) => setCompanyTypeFilter(e.target.value)}>
             <option value="all">All Types</option>
-            <option value="company">Company</option>
-            <option value="startup">Startup</option>
-            <option value="job_seeker">Job Seeker</option>
-            <option value="gig_worker">Gig Worker</option>
             <option value="employer">Employer</option>
+            <option value="startup founder">Startup Founder</option>
             <option value="aggregator">Aggregator</option>
+            <option value="ngo / non-profit">NGO / Non-Profit</option>
           </FilterSelect>
         </FilterGroup>
 
@@ -929,8 +1127,8 @@ const CompanyManagement: React.FC = () => {
                     </CompanyInfo>
                   </Td>
                   <Td>
-                    <Badge type={company.company_type?.name?.toLowerCase() || company.company_level?.name?.toLowerCase()}>
-                      {company.company_type?.name || company.company_level?.name || 'N/A'}
+                    <Badge type={getStandardizedCompanyType(company).toLowerCase()}>
+                      {getStandardizedCompanyType(company)}
                     </Badge>
                   </Td>
                   <Td>{company.location}</Td>
@@ -972,15 +1170,20 @@ const CompanyManagement: React.FC = () => {
                       >
                         <FiEdit2 />
                       </IconButton>
-                      {(company.verification_status?.toUpperCase() ?? 'PENDING') !== 'VERIFIED' && (
+                      
+                      {/* Show verify button only for PENDING_APPROVAL companies */}
+                      {(!company.verification_status || 
+                        company.verification_status.toUpperCase() === 'PENDING_APPROVAL' ||
+                        company.verification_status.toUpperCase() === 'PENDING') && (
                         <IconButton
-                          title="Verify Company"
+                          title="Verify & Approve Company"
                           onClick={() => setVerifyModalCompany(company)}
                           style={{ color: '#27ae60' }}
                         >
                           <FiCheckCircle />
                         </IconButton>
                       )}
+                      
                       <IconButton
                         title="Delete Company"
                         onClick={() => setDeleteTarget(company)}
@@ -999,7 +1202,7 @@ const CompanyManagement: React.FC = () => {
 
       <CompanyDetailRefactored
         isOpen={modalOpen}
-        company={selectedCompany}
+        company={selectedCompany as any}
         onClose={handleCloseModal}
         onUpdate={() => {
           loadCompanies();
@@ -1009,7 +1212,7 @@ const CompanyManagement: React.FC = () => {
 
       <VerificationModal
         isOpen={!!verifyModalCompany}
-        company={verifyModalCompany}
+        company={verifyModalCompany as any}
         onClose={() => setVerifyModalCompany(null)}
         onSuccess={handleVerificationSuccess}
         onToast={showToast}
